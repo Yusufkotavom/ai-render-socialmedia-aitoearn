@@ -52,3 +52,29 @@ jobs:
               core.setFailed(errorMessage);
               return;
             }
+
+            // Accept references like:
+            // - #123
+            // - fixes #123 / closes #123 / resolves #123
+            // - full URL to GitHub issue
+            const issueRefPatterns = [
+              /(?:^|\s)#\d+\b/i,
+              /\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?)\s+#\d+\b/i,
+              /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/\d+\b/i,
+            ];
+
+            const hasIssueRef = issueRefPatterns.some(pattern => pattern.test(prBody) || pattern.test(prTitle));
+
+            if (!hasIssueRef) {
+              core.setFailed(
+                `❌ PR #${prNumber} is not linked to any issue.\n\n` +
+                'Please add one issue reference in PR title or body.\n' +
+                'Examples:\n' +
+                '- "fix(server): handle queue logger init (#123)"\n' +
+                '- "Closes #123"\n' +
+                '- "Fixes https://github.com/<org>/<repo>/issues/123"',
+              );
+              return;
+            }
+
+            core.info(`✅ PR #${prNumber} passed title and issue-link checks.`);
