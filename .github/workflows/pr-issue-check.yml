@@ -3,6 +3,7 @@ name: PR Issue Check
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,9 +23,15 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const prNumber = context.payload.pull_request.number;
-            let prBody = context.payload.pull_request.body || '';
-            const prTitle = context.payload.pull_request.title || '';
+            const prNumber = context.payload.pull_request?.number || 'manual-run';
+            let prBody = context.payload.pull_request?.body || '';
+            const prTitle = context.payload.pull_request?.title || '';
+            const enforceStrict = context.repo.owner === 'yikart';
+
+            if (!context.payload.pull_request) {
+              core.info('ℹ️ workflow_dispatch run detected: PR-only checks skipped.');
+              return;
+            }
             
             const conventionalCommitsPattern = /^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\(.+\))?: .+$/;
             const validTypes = ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'chore', 'ci', 'build'];
@@ -49,7 +56,12 @@ jobs:
                 `Current title: "${prTitle}"\n\n` +
                 'Please update your PR title to follow the Conventional Commits specification.';
               
-              core.setFailed(errorMessage);
+              if (enforceStrict) {
+                core.setFailed(errorMessage);
+              }
+              else {
+                core.warning(errorMessage);
+              }
               return;
             }
 
@@ -66,14 +78,21 @@ jobs:
             const hasIssueRef = issueRefPatterns.some(pattern => pattern.test(prBody) || pattern.test(prTitle));
 
             if (!hasIssueRef) {
-              core.setFailed(
+              const message = (
                 `❌ PR #${prNumber} is not linked to any issue.\n\n` +
                 'Please add one issue reference in PR title or body.\n' +
                 'Examples:\n' +
                 '- "fix(server): handle queue logger init (#123)"\n' +
                 '- "Closes #123"\n' +
-                '- "Fixes https://github.com/<org>/<repo>/issues/123"',
+                '- "Fixes https://github.com/<org>/<repo>/issues/123"'
               );
+
+              if (enforceStrict) {
+                core.setFailed(message);
+              }
+              else {
+                core.warning(message);
+              }
               return;
             }
 
