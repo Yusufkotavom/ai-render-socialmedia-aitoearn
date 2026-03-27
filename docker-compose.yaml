@@ -10,8 +10,8 @@ services:
         "openssl rand -base64 756 > /data/mongodb-keyfile && chmod 400 /data/mongodb-keyfile && chown mongodb:mongodb /data/mongodb-keyfile && exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /data/mongodb-keyfile --bind_ip_all",
       ]
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-password}
     ports:
       - "27017:27017"
     volumes:
@@ -23,7 +23,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "mongosh mongodb://admin:password@localhost:27017/admin?authSource=admin --quiet --eval \"db.adminCommand('ping').ok\" | grep 1 >/dev/null 2>&1",
+          "mongosh mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-password}@localhost:27017/admin?authSource=admin --quiet --eval \"db.adminCommand('ping').ok\" | grep 1 >/dev/null 2>&1",
         ]
       interval: 10s
       timeout: 5s
@@ -40,7 +40,7 @@ services:
       [
         "/bin/sh",
         "-c",
-        "sleep 5 && mongosh mongodb://admin:password@mongodb:27017/?authSource=admin --eval \"try { rs.initiate({_id:'rs0', members:[{_id:0, host:'mongodb:27017'}]}) } catch(e) { if (e.codeName!=='AlreadyInitialized') throw e }\"",
+        "sleep 5 && mongosh mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-password}@mongodb:27017/?authSource=admin --eval \"try { rs.initiate({_id:'rs0', members:[{_id:0, host:'mongodb:27017'}]}) } catch(e) { if (e.codeName!=='AlreadyInitialized') throw e }\"",
       ]
     restart: "no"
     networks:
@@ -50,7 +50,7 @@ services:
     image: redis:latest
     container_name: aitoearn-redis
     restart: unless-stopped
-    command: redis-server --requirepass password
+    command: redis-server --requirepass ${REDIS_PASSWORD:-password}
     ports:
       - "6379:6379"
     volumes:
@@ -58,7 +58,7 @@ services:
     networks:
       - aitoearn-network
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a password ping | grep PONG >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-password} ping | grep PONG >/dev/null 2>&1"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -70,8 +70,8 @@ services:
     hostname: rustfs.local
     restart: unless-stopped
     environment:
-      RUSTFS_ACCESS_KEY: rustfsadmin
-      RUSTFS_SECRET_KEY: rustfsadmin
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
     ports:
       - "9001:9001"
     volumes:
@@ -97,9 +97,9 @@ services:
       - aitoearn-network
     entrypoint: >
       /bin/sh -c "
-      mc alias set rustfs http://rustfs.local:9000 rustfsadmin rustfsadmin;
-      mc mb rustfs/aitoearn --ignore-existing;
-      mc anonymous set download rustfs/aitoearn;
+      mc alias set rustfs http://rustfs.local:9000 ${RUSTFS_ACCESS_KEY:-rustfsadmin} ${RUSTFS_SECRET_KEY:-rustfsadmin};
+      mc mb rustfs/${RUSTFS_BUCKET:-aitoearn} --ignore-existing;
+      mc anonymous set download rustfs/${RUSTFS_BUCKET:-aitoearn};
       exit 0;
       "
 
@@ -115,10 +115,10 @@ services:
       - init-data:/data/init
     working_dir: /app
     environment:
-      MONGO_URI: mongodb://admin:password@mongodb:27017
-      JWT_SECRET: change-this-jwt-secret
-      DB_NAME: aitoearn
-      AUTO_LOGIN_TOKEN_PATH: /data/init/token.txt
+      MONGO_URI: ${INIT_MONGO_URI:-mongodb://admin:password@mongodb:27017}
+      JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
+      DB_NAME: ${DB_NAME:-aitoearn}
+      AUTO_LOGIN_TOKEN_PATH: ${AUTO_LOGIN_TOKEN_PATH:-/data/init/token.txt}
     entrypoint: /bin/sh -c "npm install --omit=dev 2>/dev/null && node init.mjs"
     networks:
       - aitoearn-network
@@ -141,41 +141,34 @@ services:
     networks:
       - aitoearn-network
     environment:
-      NODE_ENV: production
-      APP_ENV: production
-      APP_NAME: aitoearn-ai
-
-      MONGODB_HOST: mongodb
-      MONGODB_PORT: 27017
-      MONGODB_USERNAME: admin
-      MONGODB_PASSWORD: password
-
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: password
-
-      JWT_SECRET: change-this-jwt-secret
-      INTERNAL_TOKEN: change-this-secret-token
-
-      SERVER_URL: http://aitoearn-server:3002
-
-      ASSETS_CONFIG: '{"provider":"s3","region":"auto","bucketName":"aitoearn","endpoint":"https://b2ce9bfa4a1c529524d2aaf6898e8c30.r2.cloudflarestorage.com","publicEndpoint":"https://b2ce9bfa4a1c529524d2aaf6898e8c30.r2.cloudflarestorage.com","cdnEndpoint":"https://b2ce9bfa4a1c529524d2aaf6898e8c30.r2.cloudflarestorage.com","accessKeyId":"d34b096790f212a93099aaf3d4260ec3","secretAccessKey":"0e20957c98628c58f9a2bdee04ec3e0979ecef486b02478de0a073a771916a47","forcePathStyle":true}'
-
-      OPENAI_API_KEY: sk-placeholder
-      OPENAI_BASE_URL: https://api.openai.com/v1
-      ANTHROPIC_API_KEY: sk-placeholder
-      ANTHROPIC_BASE_URL: https://api.anthropic.com
-      VOLCENGINE_API_KEY: ""
-      VOLCENGINE_ACCESS_KEY_ID: ""
-      VOLCENGINE_SECRET_ACCESS_KEY: ""
-      VOLCENGINE_VOD_SPACE_NAME: ""
-      GROK_API_KEY: ""
-      AICSO_API_KEY: ""
-      AICSO_BASE_URL: ""
-
-      GEMINI_KEY_PAIRS: '[{"apiKey":"AIzaSyCEmNQKFyBwXVOBEoPu2Vs0BI0vux0l_ik","projectId":"859795037475","keyFile":"/tmp/placeholder-gemini-key.json","bucket":"placeholder-bucket"}]'
-      GEMINI_LOCATION: us-central1
-      AI_PROXY_URL: ""
+      NODE_ENV: ${NODE_ENV:-production}
+      APP_ENV: ${APP_ENV:-production}
+      APP_NAME: ${AI_APP_NAME:-aitoearn-ai}
+      MONGODB_HOST: ${MONGODB_HOST:-mongodb}
+      MONGODB_PORT: ${MONGODB_PORT:-27017}
+      MONGODB_USERNAME: ${MONGODB_USERNAME:-admin}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD:-password}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-password}
+      JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-change-this-secret-token}
+      SERVER_URL: ${SERVER_URL:-http://aitoearn-server:3002}
+      ASSETS_CONFIG: ${AI_ASSETS_CONFIG}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-placeholder}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-sk-placeholder}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      VOLCENGINE_API_KEY: ${VOLCENGINE_API_KEY:-}
+      VOLCENGINE_ACCESS_KEY_ID: ${VOLCENGINE_ACCESS_KEY_ID:-}
+      VOLCENGINE_SECRET_ACCESS_KEY: ${VOLCENGINE_SECRET_ACCESS_KEY:-}
+      VOLCENGINE_VOD_SPACE_NAME: ${VOLCENGINE_VOD_SPACE_NAME:-}
+      GROK_API_KEY: ${GROK_API_KEY:-}
+      AICSO_API_KEY: ${AICSO_API_KEY:-}
+      AICSO_BASE_URL: ${AICSO_BASE_URL:-}
+      GEMINI_KEY_PAIRS: ${GEMINI_KEY_PAIRS}
+      GEMINI_LOCATION: ${GEMINI_LOCATION:-us-central1}
+      AI_PROXY_URL: ${AI_PROXY_URL:-}
 
     healthcheck:
       test:
@@ -209,67 +202,58 @@ services:
     networks:
       - aitoearn-network
     environment:
-      NODE_ENV: production
-      APP_ENV: production
-      APP_NAME: aitoearn-server
-      APP_DOMAIN: api.piiblog.net
-
-      MONGODB_HOST: mongodb
-      MONGODB_PORT: 27017
-      MONGODB_USERNAME: admin
-      MONGODB_PASSWORD: password
-
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: password
-
-      AI_URL: http://aitoearn-ai:3010
-
-      JWT_SECRET: change-this-jwt-secret
-      INTERNAL_TOKEN: change-this-secret-token
-
-      ASSETS_CONFIG: '{"provider":"s3","region":"auto","bucketName":"aitoearn","endpoint":"https://b2ce9bfa4a1c529524d2aaf6898e8c30.r2.cloudflarestorage.com","publicEndpoint":"https://b2ce9bfa4a1c529524d2aaf6898e8c30.r2.cloudflarestorage.com","cdnEndpoint":"https://b2ce9bfa4a1c529524d2aaf6898e8c30.r2.cloudflarestorage.com","accessKeyId":"d34b096790f212a93099aaf3d4260ec3","secretAccessKey":"0e20957c98628c58f9a2bdee04ec3e0979ecef486b02478de0a073a771916a47","forcePathStyle":true}'
-
-      MAIL_USER: ""
-      MAIL_PASS: ""
-
-      BILIBILI_CLIENT_ID: ""
-      BILIBILI_CLIENT_SECRET: ""
-      GOOGLE_CLIENT_ID: ""
-      GOOGLE_CLIENT_SECRET: ""
-      KWAI_CLIENT_ID: ""
-      KWAI_CLIENT_SECRET: ""
-      PINTEREST_CLIENT_ID: ""
-      PINTEREST_CLIENT_SECRET: ""
-      TIKTOK_CLIENT_ID: ""
-      TIKTOK_CLIENT_SECRET: ""
-      TWITTER_CLIENT_ID: ""
-      TWITTER_CLIENT_SECRET: ""
-      FACEBOOK_CLIENT_ID: ""
-      FACEBOOK_CLIENT_SECRET: ""
-      FACEBOOK_CONFIG_ID: ""
-      THREADS_CLIENT_ID: ""
-      THREADS_CLIENT_SECRET: ""
-      INSTAGRAM_CLIENT_ID: ""
-      INSTAGRAM_CLIENT_SECRET: ""
-      LINKEDIN_CLIENT_ID: ""
-      LINKEDIN_CLIENT_SECRET: ""
-      YOUTUBE_CLIENT_ID: "-.apps.googleusercontent.com"
-      YOUTUBE_CLIENT_SECRET: "--"
-      WXPLAT_APP_ID: ""
-      WXPLAT_APP_SECRET: ""
-      WXPLAT_ENCODING_AES_KEY: ""
-      DOYIN_CLIENT_ID: ""
-      DOYIN_CLIENT_SECRET: ""
-
-      ALI_SMS_ACCESS_KEY_ID: ""
-      ALI_SMS_ACCESS_KEY_SECRET: ""
-      ALI_SMS_SIGN_NAME: ""
-      ALI_SMS_TEMPLATE_CODE: ""
-
-      RELAY_SERVER_URL: https://aitoearn.ai/api
-      RELAY_API_KEY: "ak_jS16FdJ0DCwQOupfWBQUQN8HuuOIe5gCJZ1CEqmWWuVc0wd5"
-      RELAY_CALLBACK_URL: https://api.piiblog.net/api/plat/relay-callback
+      NODE_ENV: ${NODE_ENV:-production}
+      APP_ENV: ${APP_ENV:-production}
+      APP_NAME: ${SERVER_APP_NAME:-aitoearn-server}
+      APP_DOMAIN: ${APP_DOMAIN:-api.piiblog.net}
+      MONGODB_HOST: ${MONGODB_HOST:-mongodb}
+      MONGODB_PORT: ${MONGODB_PORT:-27017}
+      MONGODB_USERNAME: ${MONGODB_USERNAME:-admin}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD:-password}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-password}
+      AI_URL: ${AI_URL:-http://aitoearn-ai:3010}
+      JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-change-this-secret-token}
+      ASSETS_CONFIG: ${SERVER_ASSETS_CONFIG}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASS: ${MAIL_PASS:-}
+      BILIBILI_CLIENT_ID: ${BILIBILI_CLIENT_ID:-}
+      BILIBILI_CLIENT_SECRET: ${BILIBILI_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      KWAI_CLIENT_ID: ${KWAI_CLIENT_ID:-}
+      KWAI_CLIENT_SECRET: ${KWAI_CLIENT_SECRET:-}
+      PINTEREST_CLIENT_ID: ${PINTEREST_CLIENT_ID:-}
+      PINTEREST_CLIENT_SECRET: ${PINTEREST_CLIENT_SECRET:-}
+      TIKTOK_CLIENT_ID: ${TIKTOK_CLIENT_ID:-}
+      TIKTOK_CLIENT_SECRET: ${TIKTOK_CLIENT_SECRET:-}
+      TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID:-}
+      TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET:-}
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID:-}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET:-}
+      FACEBOOK_CONFIG_ID: ${FACEBOOK_CONFIG_ID:-}
+      THREADS_CLIENT_ID: ${THREADS_CLIENT_ID:-}
+      THREADS_CLIENT_SECRET: ${THREADS_CLIENT_SECRET:-}
+      INSTAGRAM_CLIENT_ID: ${INSTAGRAM_CLIENT_ID:-}
+      INSTAGRAM_CLIENT_SECRET: ${INSTAGRAM_CLIENT_SECRET:-}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      YOUTUBE_CLIENT_ID: ${YOUTUBE_CLIENT_ID:--.apps.googleusercontent.com}
+      YOUTUBE_CLIENT_SECRET: ${YOUTUBE_CLIENT_SECRET:---}
+      WXPLAT_APP_ID: ${WXPLAT_APP_ID:-}
+      WXPLAT_APP_SECRET: ${WXPLAT_APP_SECRET:-}
+      WXPLAT_ENCODING_AES_KEY: ${WXPLAT_ENCODING_AES_KEY:-}
+      DOYIN_CLIENT_ID: ${DOYIN_CLIENT_ID:-}
+      DOYIN_CLIENT_SECRET: ${DOYIN_CLIENT_SECRET:-}
+      ALI_SMS_ACCESS_KEY_ID: ${ALI_SMS_ACCESS_KEY_ID:-}
+      ALI_SMS_ACCESS_KEY_SECRET: ${ALI_SMS_ACCESS_KEY_SECRET:-}
+      ALI_SMS_SIGN_NAME: ${ALI_SMS_SIGN_NAME:-}
+      ALI_SMS_TEMPLATE_CODE: ${ALI_SMS_TEMPLATE_CODE:-}
+      RELAY_SERVER_URL: ${RELAY_SERVER_URL:-https://aitoearn.ai/api}
+      RELAY_API_KEY: ${RELAY_API_KEY:-}
+      RELAY_CALLBACK_URL: ${RELAY_CALLBACK_URL:-https://api.piiblog.net/api/plat/relay-callback}
 
     healthcheck:
       test:
@@ -300,8 +284,8 @@ services:
       - aitoearn-network
     command: ["/bin/sh", "-c", "AUTO_LOGIN_TOKEN=$$(cat /data/init/token.txt 2>/dev/null || echo '') exec node server.js"]
     environment:
-      NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: 1
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_TELEMETRY_DISABLED: ${NEXT_TELEMETRY_DISABLED:-1}
 
   nginx:
     image: nginx:alpine
