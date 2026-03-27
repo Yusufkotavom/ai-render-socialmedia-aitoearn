@@ -12,6 +12,7 @@ export interface GenerateMetadataRequest {
     description: string
     tags: string[]
     platforms: string[]
+    prompt?: string
   }
 }
 
@@ -41,6 +42,7 @@ export interface CreateMetadataBatchRequest {
     description: string
     tags: string[]
     platforms: string[]
+    prompt?: string
   }>
 }
 

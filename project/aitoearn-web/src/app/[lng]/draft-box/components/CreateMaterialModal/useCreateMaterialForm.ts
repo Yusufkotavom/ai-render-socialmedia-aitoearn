@@ -17,6 +17,7 @@ import { PubType } from '@/app/config/publishConfig'
 import { UploadTaskStatusEnum } from '@/components/PublishDialog/compoents/PublishManageUpload/publishManageUpload.enum'
 import { usePublishManageUpload } from '@/components/PublishDialog/compoents/PublishManageUpload/usePublishManageUpload'
 import { toast } from '@/lib/toast'
+import { buildPromptFromTemplate, extractHashTags } from '@/utils/metadataAi'
 
 export interface FormParams {
   title: string
@@ -319,33 +320,19 @@ export function useCreateMaterialForm({
   }, [groupId, params, isEditing, editingMaterial, onSuccess, onClose, t])
 
   const generateMetadataByAi = useCallback(async (settings: MetadataAiSettings) => {
-    const extractTags = (text: string) => {
-      return Array.from(
-        new Set(
-          (text.match(/#([\p{L}\p{N}_-]+)/gu) || [])
-            .map(tag => tag.replace(/^#/, '').trim())
-            .filter(Boolean),
-        ),
-      )
-    }
-
-    const fillTemplate = (template: string) => {
-      const tags = extractTags(params.des)
-      const replacements: Record<string, string> = {
-        '{{title}}': params.title.trim(),
-        '{{description}}': params.des.trim(),
-        '{{tags}}': tags.join(', '),
-        '{{platforms}}': params.selectedPlatforms.join(', '),
-      }
-      return Object.entries(replacements).reduce((acc, [key, value]) => acc.split(key).join(value), template)
-    }
-
     setGeneratingMetadata(true)
     try {
-      const currentTags = extractTags(params.des)
+      const currentTags = extractHashTags(params.des)
+      const renderedPrompt = buildPromptFromTemplate(settings.promptTemplate, {
+        title: params.title,
+        description: params.des,
+        tags: currentTags,
+        platforms: params.selectedPlatforms.map(type => String(type)),
+      })
+
       const response = await apiGenerateMetadata({
         provider: settings.provider,
-        promptTemplate: fillTemplate(settings.promptTemplate),
+        promptTemplate: settings.promptTemplate,
         strategy: settings.strategy,
         item: {
           materialId: editingMaterial?.id,
@@ -353,6 +340,7 @@ export function useCreateMaterialForm({
           description: params.des.trim(),
           tags: currentTags,
           platforms: params.selectedPlatforms as string[],
+          prompt: renderedPrompt,
         },
       })
 
@@ -369,7 +357,13 @@ export function useCreateMaterialForm({
         ? (generated.description || params.des)
         : (params.des.trim() ? params.des : (generated.description || params.des))
       const nextTags = (generated.tags || []).filter(Boolean).slice(0, 10)
-      const tagSuffix = nextTags.length > 0 ? `\n\n${nextTags.map(tag => `#${tag}`).join(' ')}` : ''
+      const shouldAppendTags
+        = settings.strategy === 'replace_all'
+          ? true
+          : !params.des.trim()
+      const tagSuffix = shouldAppendTags && nextTags.length > 0
+        ? `\n\n${nextTags.map(tag => `#${tag}`).join(' ')}`
+        : ''
 
       updateParams({
         title: nextTitle,

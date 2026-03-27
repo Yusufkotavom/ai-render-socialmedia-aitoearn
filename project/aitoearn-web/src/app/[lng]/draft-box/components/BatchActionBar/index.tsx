@@ -15,6 +15,7 @@ import { useTransClient } from '@/app/i18n/client'
 import { Button } from '@/components/ui/button'
 import { confirm } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
+import { buildPromptFromTemplate, extractHashTags } from '@/utils/metadataAi'
 import { useMetadataAiSettingsStore } from '../CreateMaterialModal/metadataAiSettingsStore'
 
 const BatchActionBar = memo(() => {
@@ -40,9 +41,7 @@ const BatchActionBar = memo(() => {
 
   const extractTags = (material: PromotionMaterial) => {
     const topicTags = (material.topics || []).filter(Boolean).map(tag => String(tag).replace(/^#/, '').trim())
-    const descTags = (material.desc?.match(/#([\p{L}\p{N}_-]+)/gu) || [])
-      .map(tag => tag.replace(/^#/, '').trim())
-      .filter(Boolean)
+    const descTags = extractHashTags(material.desc)
     return Array.from(new Set([...topicTags, ...descTags]))
   }
 
@@ -56,13 +55,23 @@ const BatchActionBar = memo(() => {
         provider: metadataSettings.provider,
         strategy: metadataSettings.strategy,
         promptTemplate: metadataSettings.promptTemplate,
-        items: selectedMaterials.map(material => ({
-          materialId: material.id,
-          title: material.title || '',
-          description: material.desc || '',
-          tags: extractTags(material),
-          platforms: (material.accountTypes || []).map(type => String(type)),
-        })),
+        items: selectedMaterials.map((material) => {
+          const tags = extractTags(material)
+          const platforms = (material.accountTypes || []).map(type => String(type))
+          return {
+            materialId: material.id,
+            title: material.title || '',
+            description: material.desc || '',
+            tags,
+            platforms,
+            prompt: buildPromptFromTemplate(metadataSettings.promptTemplate, {
+              title: material.title || '',
+              description: material.desc || '',
+              tags,
+              platforms,
+            }),
+          }
+        }),
       })
 
       if (response?.code !== 0 || !response?.data?.jobId) {
