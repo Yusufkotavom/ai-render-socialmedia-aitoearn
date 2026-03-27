@@ -49,6 +49,10 @@ const MetadataAiSettingsDialog = memo(({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          <p className="text-xs text-muted-foreground">
+            {t('createMaterial.apiKeyLocationHint')}
+          </p>
+
           <div className="space-y-2">
             <p className="text-sm font-medium">{t('createMaterial.metadataProviderLabel')}</p>
             <div className="flex flex-wrap gap-2">

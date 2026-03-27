@@ -6,6 +6,10 @@ export interface GenerateMetadataRequest {
   provider: MetadataAiProvider
   promptTemplate: string
   strategy: 'replace_empty' | 'replace_all'
+  apiKeys?: {
+    groqApiKey?: string
+    geminiApiKey?: string
+  }
   item: {
     materialId?: string
     title: string
@@ -36,6 +40,10 @@ export interface CreateMetadataBatchRequest {
   provider: MetadataAiProvider
   promptTemplate: string
   strategy: 'replace_empty' | 'replace_all'
+  apiKeys?: {
+    groqApiKey?: string
+    geminiApiKey?: string
+  }
   items: Array<{
     materialId?: string
     title: string
