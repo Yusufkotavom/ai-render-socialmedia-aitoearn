@@ -21,10 +21,27 @@ export class MetadataService {
     return 'groq'
   }
 
-  private pickModel(provider: 'auto' | 'groq' | 'gemini'): string {
+  private pickModel(provider: 'auto' | 'groq' | 'gemini', requestedModel?: string): string {
     const chatModels = this.modelsConfigService.config.chat.map(item => item.name)
     if (chatModels.length === 0) {
       throw new AppException(ResponseCode.InvalidModel)
+    }
+
+    if (requestedModel?.trim()) {
+      const normalizedRequestedModel = requestedModel.trim()
+      if (!chatModels.includes(normalizedRequestedModel)) {
+        throw new AppException(ResponseCode.InvalidModel)
+      }
+
+      const modelName = normalizedRequestedModel.toLowerCase()
+      if (provider === 'gemini' && !modelName.includes('gemini')) {
+        throw new AppException(ResponseCode.InvalidModel, { error: 'Selected model is not a Gemini model' })
+      }
+      if (provider === 'groq' && modelName.includes('gemini')) {
+        throw new AppException(ResponseCode.InvalidModel, { error: 'Selected model is not a Groq-compatible model' })
+      }
+
+      return normalizedRequestedModel
     }
 
     if (provider === 'auto') {
@@ -40,6 +57,12 @@ export class MetadataService {
     })
 
     return matched ?? chatModels[0]
+  }
+
+  private pickGeminiModel(): string | undefined {
+    return this.modelsConfigService.config.chat
+      .map(item => item.name)
+      .find(model => model.toLowerCase().includes('gemini'))
   }
 
   private extractText(content: AIMessageChunk['content']): string {
@@ -64,6 +87,26 @@ export class MetadataService {
     return ''
   }
 
+  private extractGeminiText(result: unknown): string {
+    if (typeof result !== 'object' || result == null) {
+      return ''
+    }
+
+    const response = result as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ text?: string }>
+        }
+      }>
+    }
+
+    const parts = response.candidates?.[0]?.content?.parts || []
+    return parts
+      .map(part => (typeof part?.text === 'string' ? part.text : ''))
+      .filter(Boolean)
+      .join('\n')
+  }
+
   private parseGeneratedMetadata(text: string): Pick<GenerateMetadataVo, 'title' | 'description' | 'tags'> {
     const cleaned = text.replace(/```json|```/gi, '').trim()
     const jsonText = cleaned.match(/\{[\s\S]*\}/)?.[0] ?? cleaned
@@ -83,16 +126,75 @@ export class MetadataService {
       }
     }
     catch {
-      throw new AppException(ResponseCode.AiCallFailed, { error: 'Metadata model returned invalid JSON format' })
+      const lines = cleaned.split('\n').map(line => line.trim()).filter(Boolean)
+      const titleLine = lines.find(line => line.toLowerCase().startsWith('title:'))
+      const descLine = lines.find(line => line.toLowerCase().startsWith('description:'))
+      const tagsLine = lines.find(line => line.toLowerCase().startsWith('tags:'))
+
+      const fallbackTitle = titleLine?.replace(/^title:\s*/i, '').trim()
+      const fallbackDescription = descLine?.replace(/^description:\s*/i, '').trim() || cleaned
+      const fallbackTags = tagsLine
+        ?.replace(/^tags:\s*/i, '')
+        .split(/[,\s]+/)
+        .map(tag => tag.replace(/^#/, '').trim())
+        .filter(Boolean)
+        .slice(0, 10)
+
+      if (!fallbackTitle && !fallbackDescription && (!fallbackTags || fallbackTags.length === 0)) {
+        throw new AppException(ResponseCode.AiCallFailed, { error: 'Metadata model returned invalid JSON format' })
+      }
+
+      return {
+        title: fallbackTitle,
+        description: fallbackDescription,
+        tags: fallbackTags,
+      }
+    }
+  }
+
+  private renderPromptTemplate(template: string, request: GenerateMetadataDto): string {
+    const normalizedTemplate = template.trim()
+    if (!normalizedTemplate) {
+      return ''
+    }
+
+    const replacements: Record<string, string> = {
+      title: request.item.title || '',
+      description: request.item.description || '',
+      tags: request.item.tags.join(', '),
+      platform: request.item.platforms.join(', '),
+      platforms: request.item.platforms.join(', '),
+      language: 'auto',
+      tone: 'engaging',
+    }
+
+    return normalizedTemplate.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => replacements[key] ?? '')
+  }
+
+  private applyStrategy(
+    strategy: 'replace_empty' | 'replace_all',
+    original: GenerateMetadataDto['item'],
+    generated: Pick<GenerateMetadataVo, 'title' | 'description' | 'tags'>,
+  ): Pick<GenerateMetadataVo, 'title' | 'description' | 'tags'> {
+    if (strategy === 'replace_all') {
+      return generated
+    }
+
+    return {
+      title: original.title?.trim() ? original.title : generated.title,
+      description: original.description?.trim() ? original.description : generated.description,
+      tags: original.tags?.length ? original.tags : generated.tags,
     }
   }
 
   async generateMetadata(userId: string, request: GenerateMetadataDto): Promise<GenerateMetadataVo> {
-    const model = this.pickModel(request.provider)
+    let model = this.pickModel(request.provider, request.model)
+    const renderedPromptTemplate = this.renderPromptTemplate(request.promptTemplate, request)
 
     const prompt = request.item.prompt?.trim().length
       ? request.item.prompt
-      : [
+      : renderedPromptTemplate
+        || [
           'You are a social media metadata assistant.',
           'Return strict JSON only with keys: title, description, tags.',
           '',
@@ -107,25 +209,77 @@ export class MetadataService {
           '- Return 5-10 tags whenever possible.',
         ].join('\n')
 
-    const completion = await this.chatService.userChatCompletion({
-      userId,
-      userType: UserType.User,
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
-    })
+    let generatedText = ''
+    let usage: { inputTokens?: number, outputTokens?: number } = {}
 
-    const parsed = this.parseGeneratedMetadata(this.extractText(completion.content))
+    try {
+      if (model.toLowerCase().includes('gemini')) {
+        const geminiResult = await this.chatService.userGeminiGenerateContent({
+          userId,
+          userType: UserType.User,
+          model,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config: {
+            temperature: 0.6,
+          },
+        })
+        generatedText = this.extractGeminiText(geminiResult)
+        usage = {
+          inputTokens: geminiResult.usageMetadata?.promptTokenCount,
+          outputTokens: geminiResult.usageMetadata?.candidatesTokenCount,
+        }
+      }
+      else {
+        const completion = await this.chatService.userChatCompletion({
+          userId,
+          userType: UserType.User,
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.6,
+        })
+        generatedText = this.extractText(completion.content)
+        usage = {
+          inputTokens: completion.usage.input_tokens,
+          outputTokens: completion.usage.output_tokens,
+        }
+      }
+    }
+    catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      const hasAuthError = message.includes('Incorrect API key provided') || message.includes('invalid_api_key')
+      const geminiFallbackModel = this.pickGeminiModel()
+
+      if (hasAuthError && geminiFallbackModel && geminiFallbackModel !== model) {
+        model = geminiFallbackModel
+        const geminiResult = await this.chatService.userGeminiGenerateContent({
+          userId,
+          userType: UserType.User,
+          model,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config: {
+            temperature: 0.6,
+          },
+        })
+        generatedText = this.extractGeminiText(geminiResult)
+        usage = {
+          inputTokens: geminiResult.usageMetadata?.promptTokenCount,
+          outputTokens: geminiResult.usageMetadata?.candidatesTokenCount,
+        }
+      }
+      else {
+        throw error
+      }
+    }
+
+    const parsed = this.parseGeneratedMetadata(generatedText)
+    const finalMetadata = this.applyStrategy(request.strategy, request.item, parsed)
     const resolvedProvider = request.provider === 'auto' ? this.inferProviderByModel(model) : request.provider
 
     return {
-      ...parsed,
+      ...finalMetadata,
       provider: resolvedProvider,
       model,
-      usage: {
-        inputTokens: completion.usage.input_tokens,
-        outputTokens: completion.usage.output_tokens,
-      },
+      usage,
     }
   }
 }

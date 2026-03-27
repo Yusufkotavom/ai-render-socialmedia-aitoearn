@@ -59,6 +59,7 @@ const CreateMaterialModalContent = memo(
     const router = useRouter()
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [draftPromptTemplate, setDraftPromptTemplate] = useState('')
+    const [draftModel, setDraftModel] = useState('')
 
     const {
       params,
@@ -83,19 +84,25 @@ const CreateMaterialModalContent = memo(
         <MetadataAiSettingsDialog
           open={settingsOpen}
           provider={settings.provider}
+          model={draftModel || settings.model}
           strategy={settings.strategy}
           promptTemplate={draftPromptTemplate || settings.promptTemplate}
           onOpenChange={(open) => {
             setSettingsOpen(open)
             if (open) {
               setDraftPromptTemplate(settings.promptTemplate)
+              setDraftModel(settings.model || '')
             }
           }}
           onProviderChange={provider => updateSettings({ provider })}
+          onModelChange={setDraftModel}
           onStrategyChange={strategy => updateSettings({ strategy })}
           onPromptTemplateChange={setDraftPromptTemplate}
           onSave={() => {
-            updateSettings({ promptTemplate: draftPromptTemplate || settings.promptTemplate })
+            updateSettings({
+              promptTemplate: draftPromptTemplate || settings.promptTemplate,
+              model: draftModel || settings.model,
+            })
             setSettingsOpen(false)
           }}
         />

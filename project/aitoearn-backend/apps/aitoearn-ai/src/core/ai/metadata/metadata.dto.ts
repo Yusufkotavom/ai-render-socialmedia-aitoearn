@@ -14,6 +14,7 @@ export const generateMetadataItemSchema = z.object({
 
 export const generateMetadataDtoSchema = z.object({
   provider: metadataProviderSchema.default('auto'),
+  model: z.string().optional(),
   promptTemplate: z.string().default(''),
   strategy: z.enum(['replace_empty', 'replace_all']).default('replace_empty'),
   item: generateMetadataItemSchema,

@@ -4,6 +4,7 @@ export type MetadataAiProvider = 'auto' | 'groq' | 'gemini'
 
 export interface GenerateMetadataRequest {
   provider: MetadataAiProvider
+  model?: string
   promptTemplate: string
   strategy: 'replace_empty' | 'replace_all'
   item: {
