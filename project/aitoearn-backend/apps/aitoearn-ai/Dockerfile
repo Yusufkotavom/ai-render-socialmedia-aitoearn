@@ -20,8 +20,10 @@ WORKDIR /app
 COPY assets/ ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/dist ./dist
+COPY --from=deps /app/libs ./libs
+COPY --from=deps /app/dist/libs ./libs
 
 ENV NODE_ENV=production
 ENV APP_NAME=$APP_NAME
 
-CMD ["sh", "-c", "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf && echo 'nameserver 1.1.1.1' >> /etc/resolv.conf && node dist/apps/aitoearn-ai/src/main.js -c config.js"]
+CMD ["sh", "-c", "node dist/apps/aitoearn-ai/src/main.js -c config.js"]
