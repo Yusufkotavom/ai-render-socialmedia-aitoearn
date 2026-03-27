@@ -32,6 +32,8 @@ const {
 
 const {
   ASSETS_CONFIG,
+  ASSETS_PUBLIC_ENDPOINT,
+  ASSETS_CDN_ENDPOINT,
 } = process.env
 
 const {
@@ -56,6 +58,28 @@ function parseGeminiKeyPairs() {
     console.error('解析 GEMINI_KEY_PAIRS 失败:', e)
     throw new Error('GEMINI_KEY_PAIRS 格式错误')
   }
+}
+
+
+function parseAssetsConfig() {
+  let parsed
+  try {
+    parsed = JSON.parse(ASSETS_CONFIG)
+  }
+  catch (e) {
+    console.error('解析 ASSETS_CONFIG 失败:', e)
+    throw new Error('ASSETS_CONFIG 格式错误')
+  }
+
+  if (ASSETS_PUBLIC_ENDPOINT) {
+    parsed.publicEndpoint = ASSETS_PUBLIC_ENDPOINT
+  }
+
+  if (ASSETS_CDN_ENDPOINT) {
+    parsed.cdnEndpoint = ASSETS_CDN_ENDPOINT
+  }
+
+  return parsed
 }
 
 module.exports = {
@@ -94,7 +118,7 @@ module.exports = {
     baseUrl: SERVER_URL,
     token: INTERNAL_TOKEN,
   },
-  assets: JSON.parse(ASSETS_CONFIG),
+  assets: parseAssetsConfig(),
   ai: {
     volcengine: {
       baseUrl: 'https://ark.cn-beijing.volces.com/',
@@ -337,7 +361,7 @@ module.exports = {
             durations: [15],
             maxInputImages: 1,
             aspectRatios: ['2:3', '3:2', '1:1'],
-            tags: ['Sale'],
+            tags: [{ 'en-US': 'Sale', 'zh-CN': '促销' }],
             defaults: {
               duration: 15,
               aspectRatio: '9:16',
@@ -355,7 +379,7 @@ module.exports = {
             durations: [8],
             maxInputImages: 3,
             aspectRatios: ['9:16', '16:9', '1:1'],
-            tags: ['Sale'],
+            tags: [{ 'en-US': 'Sale', 'zh-CN': '促销' }],
             defaults: {
               duration: 8,
               aspectRatio: '9:16',
@@ -373,7 +397,7 @@ module.exports = {
             durations: [8],
             maxInputImages: 3,
             aspectRatios: ['9:16', '16:9', '1:1'],
-            tags: ['Sale'],
+            tags: [{ 'en-US': 'Sale', 'zh-CN': '促销' }],
             defaults: {
               duration: 8,
               aspectRatio: '9:16',
