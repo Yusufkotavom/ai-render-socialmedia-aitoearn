@@ -315,6 +315,8 @@
     "metadataAiSettings": "AI Metadata Settings",
     "metadataAiSettingsTitle": "AI Metadata Generation Settings",
     "metadataProviderLabel": "Provider",
+    "metadataModelLabel": "Model",
+    "metadataModelPlaceholder": "Enter model name (default: Groq)",
     "metadataApplyStrategyLabel": "Apply Strategy",
     "metadataApplyReplaceEmpty": "Fill Empty Fields Only",
     "metadataApplyReplaceAll": "Replace All Fields",
