@@ -244,6 +244,9 @@ const CreateMaterialModalContent = memo(
                 </div>
               )}
             />
+            <p className="mt-2 px-1 text-xs text-muted-foreground">
+              {t('createMaterial.descriptionTagHint')}
+            </p>
           </div>
         </div>
 

@@ -488,6 +488,9 @@ const MobileContent = memo(
               placeholder={tPublish('form.descriptionPlaceholder')}
               maxLength={effectiveLimits.desMax?.value ?? 2200}
             />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t('createMaterial.descriptionTagHint')}
+            </p>
           </div>
         </div>
 

@@ -10,6 +10,7 @@ import type { PromotionMaterial } from '@/app/[lng]/brand-promotion/brandPromoti
 import { Loader2, Sparkles, Trash2 } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { apiUpdateMaterial } from '@/api/material'
 import { apiCreateMetadataBatch, apiGetMetadataBatchJob } from '@/api/metadataGeneration'
 import { usePlanDetailStore } from '@/app/[lng]/brand-promotion/planDetailStore'
 import { useTransClient } from '@/app/i18n/client'
@@ -24,6 +25,8 @@ const BatchActionBar = memo(() => {
   const [batchGenerating, setBatchGenerating] = useState(false)
   const [activeJobId, setActiveJobId] = useState<string>()
   const [batchStatus, setBatchStatus] = useState<MetadataBatchStatusResponse>()
+  const [applyingResults, setApplyingResults] = useState(false)
+  const [appliedJobId, setAppliedJobId] = useState<string>()
 
   const { selectedMaterialIds, batchDeleting, materials } = usePlanDetailStore(
     useShallow(state => ({
@@ -41,12 +44,102 @@ const BatchActionBar = memo(() => {
 
   const exitBatchMode = usePlanDetailStore(state => state.exitBatchMode)
   const batchDeleteMaterials = usePlanDetailStore(state => state.batchDeleteMaterials)
+  const currentPlan = usePlanDetailStore(state => state.currentPlan)
+  const fetchMaterials = usePlanDetailStore(state => state.fetchMaterials)
 
   const extractTags = (material: PromotionMaterial) => {
     const topicTags = (material.topics || []).filter(Boolean).map(tag => String(tag).replace(/^#/, '').trim())
     const descTags = extractHashTags(material.desc)
     return Array.from(new Set([...topicTags, ...descTags]))
   }
+
+  const buildDescriptionWithTags = useCallback((description: string, tags: string[]) => {
+    const descriptionLines = description.split('\n')
+    while (descriptionLines.length > 0) {
+      const lastLine = descriptionLines[descriptionLines.length - 1]?.trim() || ''
+      if (!lastLine) {
+        descriptionLines.pop()
+        continue
+      }
+      const isHashtagLine = lastLine
+        .split(/\s+/)
+        .every(word => word.startsWith('#'))
+      if (isHashtagLine) {
+        descriptionLines.pop()
+        continue
+      }
+      break
+    }
+
+    const cleanDescription = descriptionLines.join('\n').trim()
+    if (tags.length === 0) {
+      return cleanDescription
+    }
+
+    return `${cleanDescription}\n\n${tags.map(tag => `#${tag}`).join(' ')}`.trim()
+  }, [])
+
+  const applyBatchResults = useCallback(async (status: MetadataBatchStatusResponse) => {
+    if (!currentPlan || applyingResults || appliedJobId === status.jobId) {
+      return
+    }
+
+    const successfulItems = status.items.filter(item => item.status === 'success' && item.result)
+    if (successfulItems.length === 0) {
+      setAppliedJobId(status.jobId)
+      return
+    }
+
+    setApplyingResults(true)
+    try {
+      const updateResults = await Promise.allSettled(successfulItems.map(async (item) => {
+        const material = selectedMaterials[item.index]
+        const generated = item.result
+        if (!material || !generated) {
+          return false
+        }
+
+        const nextTitle = generated.title || material.title || ''
+        const nextDescription = generated.description || material.desc || ''
+        const nextTags = Array.from(new Set((generated.tags || []).filter(Boolean).slice(0, 10)))
+        const nextDesc = buildDescriptionWithTags(nextDescription, nextTags)
+
+        const res = await apiUpdateMaterial(material.id, {
+          coverUrl: material.coverUrl,
+          mediaList: material.mediaList,
+          title: nextTitle,
+          desc: nextDesc,
+          location: material.location,
+          option: material.option,
+          accountTypes: material.accountTypes,
+        })
+
+        return res?.code === 0
+      }))
+
+      const persistedCount = updateResults.filter((result) => {
+        return result.status === 'fulfilled' && result.value
+      }).length
+
+      setAppliedJobId(status.jobId)
+      await fetchMaterials(currentPlan.id, 1)
+
+      if (persistedCount > 0) {
+        toast.success(t('draftManage.batchGenerateApplySuccess', {
+          count: persistedCount,
+        }))
+      }
+      else {
+        toast.error(t('draftManage.batchGenerateApplyFailed'))
+      }
+    }
+    catch {
+      toast.error(t('draftManage.batchGenerateApplyFailed'))
+    }
+    finally {
+      setApplyingResults(false)
+    }
+  }, [appliedJobId, applyingResults, buildDescriptionWithTags, currentPlan, fetchMaterials, selectedMaterials, t])
 
   const handleBatchGenerateMetadata = useCallback(async () => {
     if (selectedMaterials.length === 0)
@@ -84,6 +177,8 @@ const BatchActionBar = memo(() => {
       }
 
       setActiveJobId(response.data.jobId)
+      setAppliedJobId(undefined)
+      setBatchStatus(undefined)
       toast.success(t('draftManage.batchGenerateMetadataStarted', { count: selectedMaterials.length }))
     }
     catch {
@@ -105,6 +200,7 @@ const BatchActionBar = memo(() => {
         return
       setBatchStatus(response.data)
       if (response.data.status === 'completed' || response.data.status === 'failed') {
+        void applyBatchResults(response.data)
         return
       }
       setTimeout(run, 1500)
@@ -226,10 +322,10 @@ const BatchActionBar = memo(() => {
             variant="outline"
             size="sm"
             onClick={handleBatchGenerateMetadata}
-            disabled={selectedMaterialIds.length === 0 || batchGenerating}
+            disabled={selectedMaterialIds.length === 0 || batchGenerating || applyingResults}
             className="cursor-pointer gap-1.5"
           >
-            {batchGenerating
+            {batchGenerating || applyingResults
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
               : <Sparkles className="h-3.5 w-3.5" />}
             {t('draftManage.batchGenerateMetadata')}
