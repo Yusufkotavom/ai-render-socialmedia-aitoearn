@@ -125,13 +125,17 @@ export class ChatService {
       route: isGroqCompatibleModel ? 'groq-openai-compatible' : 'default-openai-compatible',
     }, 'Chat completion routing')
 
-    if (isGroqCompatibleModel && !config.ai.grok.apiKey) {
+    // Groq routing explicitly reads GROQ_API_KEY first to avoid naming confusion with legacy GROK_API_KEY.
+    const groqApiKey = process.env.GROQ_API_KEY || config.ai.grok.apiKey
+
+    if (isGroqCompatibleModel && !groqApiKey) {
       this.logger.error({
         model,
         route: 'groq-openai-compatible',
-        envHint: 'Set GROQ_API_KEY (preferred) or GROK_API_KEY',
+        provider: 'groq',
+        envHint: 'Set GROQ_API_KEY (preferred). Legacy fallback: GROK_API_KEY',
       }, 'Missing Groq API key for Groq-compatible model routing')
-      throw new AppException(ResponseCode.AiCallFailed, { error: 'Missing Groq API key: set GROQ_API_KEY (preferred) or GROK_API_KEY' })
+      throw new AppException(ResponseCode.AiCallFailed, { error: 'Missing Groq API key: set GROQ_API_KEY (preferred), fallback GROK_API_KEY' })
     }
 
     const result = isGroqCompatibleModel
@@ -139,7 +143,7 @@ export class ChatService {
           model,
           messages: langchainMessages,
           ...params,
-          groqApiKey: config.ai.grok.apiKey,
+          groqApiKey,
           groqBaseURL: 'https://api.groq.com/openai/v1',
           modalities: params.modalities as OpenAIClient.Chat.ChatCompletionModality[],
         })
