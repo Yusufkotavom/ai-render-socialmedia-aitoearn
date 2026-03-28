@@ -33,7 +33,7 @@ export class OpenaiService {
       timeout: options.timeout ?? this.config.timeout,
       apiKey: options.apiKey ?? this.config.apiKey,
       configuration: {
-        baseURL: this.config.baseUrl,
+        baseURL: options.configuration?.baseURL ?? this.config.baseUrl,
       },
       streaming: true,
     })
