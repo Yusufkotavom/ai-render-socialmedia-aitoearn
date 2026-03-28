@@ -255,6 +255,44 @@ export class MetadataService {
     }
   }
 
+  private buildFailureDetail(error: unknown): Record<string, unknown> {
+    if (!(error instanceof Error)) {
+      return {
+        type: typeof error,
+        raw: error,
+      }
+    }
+
+    const ext = error as Error & {
+      code?: string
+      status?: number
+      param?: string | null
+      requestID?: string
+      lc_error_code?: string
+      error?: {
+        code?: string
+        message?: string
+        type?: string
+      }
+      response?: {
+        status?: number
+        data?: unknown
+      }
+    }
+
+    return {
+      name: error.name,
+      message: error.message,
+      code: ext.code ?? ext.error?.code,
+      status: ext.status ?? ext.response?.status,
+      requestId: ext.requestID,
+      lcErrorCode: ext.lc_error_code,
+      providerErrorType: ext.error?.type,
+      providerErrorMessage: ext.error?.message,
+      stack: error.stack?.split('\n').slice(0, 6).join('\n'),
+    }
+  }
+
   async generateMetadata(userId: string, request: GenerateMetadataDto): Promise<GenerateMetadataVo> {
     let model = this.pickModel(request.provider, request.model)
     let activeProvider: 'groq' | 'gemini' = request.provider === 'auto'
@@ -324,7 +362,11 @@ export class MetadataService {
         || message.includes('Unauthorized')
       const sameProviderFallbackModel = this.pickAlternativeModelByProvider(activeProvider, model)
 
-      if (hasAuthError && sameProviderFallbackModel) {
+      const shouldRetrySameProviderModel = hasAuthError
+        && activeProvider === 'gemini'
+        && !!sameProviderFallbackModel
+
+      if (shouldRetrySameProviderModel) {
         model = sameProviderFallbackModel
         try {
           if (activeProvider === 'gemini') {
@@ -359,6 +401,17 @@ export class MetadataService {
           }
         }
         catch (retryError) {
+          this.logger.warn({
+            provider: activeProvider,
+            model,
+            fallbackModel: sameProviderFallbackModel,
+            retryFailure: this.buildFailureDetail(retryError),
+          }, 'Metadata provider retry failed, using local fallback')
+          const localFallback = this.buildLocalFallbackMetadata(request.item)
+          generatedText = JSON.stringify(localFallback)
+          model = 'local-fallback'
+        }
+        catch (retryError) {
           this.logger.warn({ retryError }, 'Metadata provider retry failed, using local fallback')
           const localFallback = this.buildLocalFallbackMetadata(request.item)
           generatedText = JSON.stringify(localFallback)
@@ -370,8 +423,22 @@ export class MetadataService {
         generatedText = JSON.stringify(localFallback)
         model = 'local-fallback'
       }
+      else if (hasAuthError) {
+        this.logger.warn({
+          provider: activeProvider,
+          model,
+          failure: this.buildFailureDetail(error),
+        }, 'Metadata auth failed, skipping same-provider retry and using local fallback')
+        const localFallback = this.buildLocalFallbackMetadata(request.item)
+        generatedText = JSON.stringify(localFallback)
+        model = 'local-fallback'
+      }
       else {
-        this.logger.warn({ error }, 'Metadata provider call failed, using local fallback')
+        this.logger.warn({
+          provider: activeProvider,
+          model,
+          failure: this.buildFailureDetail(error),
+        }, 'Metadata provider call failed, using local fallback')
         const localFallback = this.buildLocalFallbackMetadata(request.item)
         generatedText = JSON.stringify(localFallback)
         model = 'local-fallback'
