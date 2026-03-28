@@ -102,7 +102,7 @@ export class GeminiKeyManagerService {
     }
 
     if (this.genAiClientCache.size === 0) {
-      throw new Error('No valid Gemini key pairs: verify keyFile points to a service-account JSON')
+      this.logger.warn('No valid Gemini key pairs loaded. Gemini features are disabled until keyFile is fixed.')
     }
   }
 
@@ -135,6 +135,10 @@ export class GeminiKeyManagerService {
   }
 
   async selectKeyPair(): Promise<GeminiKeyPairSelection> {
+    if (this.getUsableKeyPairs().length === 0) {
+      throw new Error('Gemini key pairs are not configured. Configure GEMINI_KEY_PAIRS with valid service-account keyFile.')
+    }
+
     const now = Date.now()
     const availablePairs: { pair: GeminiKeyPair, state: GeminiKeyPairState }[] = []
     let shortestCooldownPair: { pair: GeminiKeyPair, cooldownUntil: number } | null = null
