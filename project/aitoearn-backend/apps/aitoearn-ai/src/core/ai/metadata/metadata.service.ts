@@ -63,10 +63,7 @@ export class MetadataService {
         return normalized.includes('groq') || normalized.includes('llama') || normalized.includes('qwen')
       })
       if (!matched) {
-        if (provider === 'groq') {
-          return defaultGroqModel
-        }
-        throw new AppException(ResponseCode.InvalidModel, { provider })
+        return chatModels[0]
       }
       return matched
     }
