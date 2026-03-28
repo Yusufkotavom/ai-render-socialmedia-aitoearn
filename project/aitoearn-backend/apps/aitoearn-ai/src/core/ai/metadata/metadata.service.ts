@@ -1,5 +1,5 @@
 import { AIMessageChunk } from '@langchain/core/messages'
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { AppException, ResponseCode, UserType } from '@yikart/common'
 import { UserRepository } from '@yikart/mongodb'
 import { ChatService } from '../chat'
@@ -28,6 +28,7 @@ interface MetadataBatchJob {
 
 @Injectable()
 export class MetadataService {
+  private readonly logger = new Logger(MetadataService.name)
   private readonly jobs = new Map<string, MetadataBatchJob>()
 
   constructor(
@@ -318,6 +319,7 @@ export class MetadataService {
       const message = error instanceof Error ? error.message : ''
       const hasAuthError = message.includes('Incorrect API key provided')
         || message.includes('invalid_api_key')
+        || message.includes('Invalid API Key')
         || message.includes('UNAUTHENTICATED')
         || message.includes('Unauthorized')
       const sameProviderFallbackModel = this.pickAlternativeModelByProvider(activeProvider, model)
@@ -362,7 +364,10 @@ export class MetadataService {
         model = 'local-fallback'
       }
       else {
-        throw error
+        this.logger.warn({ error }, 'Metadata provider call failed, using local fallback')
+        const localFallback = this.buildLocalFallbackMetadata(request.item)
+        generatedText = JSON.stringify(localFallback)
+        model = 'local-fallback'
       }
     }
 
