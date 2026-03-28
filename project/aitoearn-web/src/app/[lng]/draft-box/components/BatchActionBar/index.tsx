@@ -7,14 +7,25 @@
 
 import type { MetadataBatchStatusResponse } from '@/api/metadataGeneration'
 import type { PromotionMaterial } from '@/app/[lng]/brand-promotion/brandPromotionStore/types'
-import { Loader2, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowRightLeft, Eraser, Loader2, PencilLine, Sparkles, Trash2 } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { apiUpdateMaterial } from '@/api/material'
+import { apiGetMaterialGroupList, apiUpdateMaterial } from '@/api/material'
 import { apiCreateMetadataBatch, apiGetMetadataBatchJob } from '@/api/metadataGeneration'
 import { usePlanDetailStore } from '@/app/[lng]/brand-promotion/planDetailStore'
 import { useTransClient } from '@/app/i18n/client'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { confirm } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import { buildPromptFromTemplate, extractHashTags } from '@/utils/metadataAi'
@@ -27,6 +38,14 @@ const BatchActionBar = memo(() => {
   const [batchStatus, setBatchStatus] = useState<MetadataBatchStatusResponse>()
   const [applyingResults, setApplyingResults] = useState(false)
   const [appliedJobId, setAppliedJobId] = useState<string>()
+  const [moving, setMoving] = useState(false)
+  const [groupOptions, setGroupOptions] = useState<Array<{ id: string, name: string }>>([])
+  const [targetGroupId, setTargetGroupId] = useState<string>('')
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false)
+  const [metadataSaving, setMetadataSaving] = useState(false)
+  const [metaTitle, setMetaTitle] = useState('')
+  const [metaDesc, setMetaDesc] = useState('')
+  const [metaTags, setMetaTags] = useState('')
 
   const { selectedMaterialIds, batchDeleting, materials } = usePlanDetailStore(
     useShallow(state => ({
@@ -46,6 +65,29 @@ const BatchActionBar = memo(() => {
   const batchDeleteMaterials = usePlanDetailStore(state => state.batchDeleteMaterials)
   const currentPlan = usePlanDetailStore(state => state.currentPlan)
   const fetchMaterials = usePlanDetailStore(state => state.fetchMaterials)
+
+  useEffect(() => {
+    let mounted = true
+    const run = async () => {
+      const res = await apiGetMaterialGroupList(1, 100)
+      if (!mounted)
+        return
+      const list = (res?.data?.list || []).map(item => ({
+        id: item.id,
+        name: item.name || item.title || item.id,
+      }))
+      setGroupOptions(list)
+      if (!targetGroupId) {
+        const fallback = list.find(item => item.id !== currentPlan?.id)?.id || ''
+        setTargetGroupId(fallback)
+      }
+    }
+
+    void run()
+    return () => {
+      mounted = false
+    }
+  }, [currentPlan?.id, targetGroupId])
 
   const extractTags = (material: PromotionMaterial) => {
     const topicTags = (material.topics || []).filter(Boolean).map(tag => String(tag).replace(/^#/, '').trim())
@@ -140,6 +182,115 @@ const BatchActionBar = memo(() => {
       setApplyingResults(false)
     }
   }, [appliedJobId, applyingResults, buildDescriptionWithTags, currentPlan, fetchMaterials, selectedMaterials, t])
+
+  const updateSelectedMaterials = useCallback(async (
+    updater: (material: PromotionMaterial) => Parameters<typeof apiUpdateMaterial>[1],
+  ) => {
+    if (!currentPlan || selectedMaterials.length === 0) {
+      return 0
+    }
+
+    const results = await Promise.allSettled(selectedMaterials.map(async (material) => {
+      const payload = updater(material)
+      const res = await apiUpdateMaterial(material.id, payload)
+      return res?.code === 0
+    }))
+
+    const successCount = results.filter(result => result.status === 'fulfilled' && result.value).length
+    await fetchMaterials(currentPlan.id, 1)
+    return successCount
+  }, [currentPlan, fetchMaterials, selectedMaterials])
+
+  const handleClearMetadata = useCallback(() => {
+    if (selectedMaterials.length === 0) {
+      return
+    }
+
+    confirm({
+      title: 'Clear metadata',
+      content: `Clear metadata for ${selectedMaterials.length} selected drafts?`,
+      onOk: async () => {
+        const successCount = await updateSelectedMaterials(material => ({
+          coverUrl: material.coverUrl,
+          mediaList: material.mediaList,
+          title: '',
+          desc: '',
+          topics: [],
+          location: material.location,
+          option: material.option,
+          accountTypes: material.accountTypes,
+        }))
+        if (successCount > 0) {
+          toast.success(`Cleared metadata for ${successCount} drafts`)
+        }
+        else {
+          toast.error('Failed to clear metadata')
+        }
+      },
+    })
+  }, [selectedMaterials.length, t, updateSelectedMaterials])
+
+  const handleSaveMetadataCrud = useCallback(async () => {
+    const tags = metaTags.split(',').map(tag => tag.trim().replace(/^#/, '')).filter(Boolean)
+    setMetadataSaving(true)
+    try {
+      const successCount = await updateSelectedMaterials(material => ({
+        coverUrl: material.coverUrl,
+        mediaList: material.mediaList,
+        title: metaTitle.trim() || material.title || '',
+        desc: metaDesc.trim() || material.desc || '',
+        topics: tags.length > 0 ? tags : (material.topics || []),
+        location: material.location,
+        option: material.option,
+        accountTypes: material.accountTypes,
+      }))
+
+      if (successCount > 0) {
+        toast.success(`Updated metadata for ${successCount} drafts`)
+        setMetadataDialogOpen(false)
+      }
+      else {
+        toast.error('Failed to update metadata')
+      }
+    }
+    finally {
+      setMetadataSaving(false)
+    }
+  }, [metaDesc, metaTags, metaTitle, t, updateSelectedMaterials])
+
+  const handleMoveToGroup = useCallback(async () => {
+    if (!targetGroupId || !currentPlan || selectedMaterials.length === 0) {
+      return
+    }
+    if (targetGroupId === currentPlan.id) {
+      toast.error('Choose another promotion tab')
+      return
+    }
+
+    setMoving(true)
+    try {
+      const successCount = await updateSelectedMaterials(material => ({
+        coverUrl: material.coverUrl,
+        mediaList: material.mediaList,
+        title: material.title,
+        desc: material.desc,
+        topics: material.topics,
+        location: material.location,
+        option: material.option,
+        accountTypes: material.accountTypes,
+        groupId: targetGroupId,
+      }))
+      if (successCount > 0) {
+        toast.success(`Moved ${successCount} drafts`)
+      }
+      else {
+        toast.error('Move failed')
+      }
+    }
+    finally {
+      setMoving(false)
+    }
+  }, [targetGroupId, currentPlan, selectedMaterials.length, updateSelectedMaterials, t])
 
   const handleBatchGenerateMetadata = useCallback(async () => {
     if (selectedMaterials.length === 0)
@@ -286,66 +437,186 @@ const BatchActionBar = memo(() => {
   }, [selectedMaterialIds.length, batchDeleteMaterials, t])
 
   return (
-    <div data-testid="draftbox-batch-bar" className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 py-3">
-      <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
-        <span data-testid="draftbox-batch-selected-count" className="text-sm text-muted-foreground">
-          {t('draftManage.selectedCount', { count: selectedMaterialIds.length })}
-        </span>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {batchStatus && (
-            <div className="text-xs text-muted-foreground mr-2">
-              {t('draftManage.batchGenerateProgress', {
-                success: batchStatus.successCount,
-                failed: batchStatus.failedCount,
-                total: batchStatus.total,
-              })}
-            </div>
-          )}
-          {batchStatus?.failedCount
-            ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleRetryFailed}
-                  disabled={batchGenerating}
-                  className="cursor-pointer"
-                >
-                  {t('draftManage.batchGenerateRetryFailed')}
-                </Button>
-              )
-            : null}
-          <Button variant="ghost" size="sm" onClick={exitBatchMode} className="cursor-pointer">
-            {t('draftManage.cancel')}
-          </Button>
-          <Button
-            data-testid="draftbox-batch-generate-metadata-btn"
-            variant="outline"
-            size="sm"
-            onClick={handleBatchGenerateMetadata}
-            disabled={selectedMaterialIds.length === 0 || batchGenerating || applyingResults}
-            className="cursor-pointer gap-1.5"
-          >
-            {batchGenerating || applyingResults
-              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              : <Sparkles className="h-3.5 w-3.5" />}
-            {t('draftManage.batchGenerateMetadata')}
-          </Button>
-          <Button
-            data-testid="draftbox-batch-delete-btn"
-            variant="destructive"
-            size="sm"
-            onClick={handleDelete}
-            disabled={selectedMaterialIds.length === 0 || batchDeleting}
-            className="cursor-pointer gap-1.5"
-          >
-            {batchDeleting
-              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              : <Trash2 className="h-3.5 w-3.5" />}
-            {t('common.delete')}
-          </Button>
+    <>
+      <div data-testid="draftbox-batch-bar" className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-3 md:px-6 py-2.5">
+        <div className="flex items-center justify-between gap-2 max-w-screen-2xl mx-auto">
+          <span data-testid="draftbox-batch-selected-count" className="text-xs text-muted-foreground whitespace-nowrap">
+            {selectedMaterialIds.length} selected
+          </span>
+
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {batchStatus && (
+              <div className="text-[10px] text-muted-foreground mr-1.5">
+                {batchStatus.successCount}/{batchStatus.total}
+              </div>
+            )}
+
+            <Select value={targetGroupId} onValueChange={setTargetGroupId}>
+              <SelectTrigger className="h-8 w-[140px] text-xs">
+                <SelectValue placeholder="Move to..." />
+              </SelectTrigger>
+              <SelectContent>
+                {groupOptions
+                  .filter(item => item.id !== currentPlan?.id)
+                  .map(item => (
+                    <SelectItem key={item.id} value={item.id} className="text-xs">
+                      {item.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleMoveToGroup}
+                    disabled={!targetGroupId || moving}
+                    className="h-8 w-8 cursor-pointer"
+                  >
+                    {moving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Move to promotion tab</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 cursor-pointer"
+                    onClick={() => setMetadataDialogOpen(true)}
+                    disabled={selectedMaterialIds.length === 0}
+                  >
+                    <PencilLine className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Metadata CRUD</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 cursor-pointer"
+                    onClick={handleClearMetadata}
+                    disabled={selectedMaterialIds.length === 0}
+                  >
+                    <Eraser className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear metadata</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    data-testid="draftbox-batch-generate-metadata-btn"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleBatchGenerateMetadata}
+                    disabled={selectedMaterialIds.length === 0 || batchGenerating || applyingResults}
+                    className="h-8 w-8 cursor-pointer"
+                  >
+                    {batchGenerating || applyingResults
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Sparkles className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('draftManage.batchGenerateMetadata')}</TooltipContent>
+              </Tooltip>
+
+              {batchStatus?.failedCount
+                ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          onClick={handleRetryFailed}
+                          disabled={batchGenerating}
+                          className="h-8 w-8 cursor-pointer"
+                        >
+                          <span className="text-[10px]">R</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('draftManage.batchGenerateRetryFailed')}</TooltipContent>
+                    </Tooltip>
+                  )
+                : null}
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={exitBatchMode} className="h-8 w-8 cursor-pointer">
+                    <span className="text-[10px]">X</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('draftManage.cancel')}</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    data-testid="draftbox-batch-delete-btn"
+                    variant="destructive"
+                    size="icon"
+                    onClick={handleDelete}
+                    disabled={selectedMaterialIds.length === 0 || batchDeleting}
+                    className="h-8 w-8 cursor-pointer"
+                  >
+                    {batchDeleting
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('common.delete')}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
-    </div>
+
+      <Dialog open={metadataDialogOpen} onOpenChange={setMetadataDialogOpen}>
+        <DialogContent className="sm:max-w-[540px]">
+          <DialogHeader>
+            <DialogTitle>Batch Metadata CRUD</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              value={metaTitle}
+              onChange={e => setMetaTitle(e.target.value)}
+              placeholder="Title (leave empty to keep current)"
+              className="h-9 text-xs"
+            />
+            <Textarea
+              value={metaDesc}
+              onChange={e => setMetaDesc(e.target.value)}
+              placeholder="Description (leave empty to keep current)"
+              className="min-h-[92px] text-xs"
+            />
+            <Input
+              value={metaTags}
+              onChange={e => setMetaTags(e.target.value)}
+              placeholder="Tags separated by comma, example: promo, launch, spring"
+              className="h-9 text-xs"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMetadataDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveMetadataCrud} disabled={metadataSaving}>
+              {metadataSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 })
 

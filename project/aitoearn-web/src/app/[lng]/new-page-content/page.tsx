@@ -28,10 +28,10 @@ export async function generateMetadata({ params }: PageParams) {
   )
 }
 
-const DraftBoxCore = dynamic(() => import('../draft-box/DraftBoxCore'), {
+const NewPageContentShell = dynamic(() => import('./NewPageContentShell'), {
   ssr: false,
 })
 
 export default function NewPageContentPage() {
-  return <DraftBoxCore showGenerateBar={false} />
+  return <NewPageContentShell />
 }

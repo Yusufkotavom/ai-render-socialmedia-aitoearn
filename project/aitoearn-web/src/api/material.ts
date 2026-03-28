@@ -159,10 +159,12 @@ export function apiUpdateMaterialInfo(
 export function apiUpdateMaterial(
   id: string,
   data: {
+    groupId?: string
     coverUrl?: string
     mediaList?: MaterialMedia[]
     title?: string
     desc?: string
+    topics?: string[]
     location?: number[]
     option?: Record<string, any>
     accountTypes?: string[]

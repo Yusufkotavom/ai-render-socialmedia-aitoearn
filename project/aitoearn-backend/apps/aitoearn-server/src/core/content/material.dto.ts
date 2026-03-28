@@ -32,6 +32,7 @@ export const CreateMaterialSchema = z.object({
 export class CreateMaterialDto extends createZodDto(CreateMaterialSchema) { }
 
 export const UpdateMaterialSchema = z.object({
+  groupId: z.string().optional().describe('分组ID'),
   coverUrl: FileUtil.zodTrimHost().optional().describe('封面图'),
   mediaList: z.array(MaterialMediaSchema).describe('资源列表'),
   title: z.string().describe('标题'),

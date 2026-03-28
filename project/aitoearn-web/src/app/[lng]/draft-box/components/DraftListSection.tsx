@@ -11,7 +11,7 @@
 
 import type { PromotionMaterial } from '@/app/[lng]/brand-promotion/brandPromotionStore/types'
 import type { PlatType } from '@/app/config/platConfig'
-import { Check, ListChecks, Plus } from 'lucide-react'
+import { Check, ListChecks, Plus, Rows3 } from 'lucide-react'
 import Image from 'next/image'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import Masonry from 'react-masonry-css'
@@ -30,6 +30,7 @@ import { BatchActionBar } from './BatchActionBar'
 import { ConditionalDeleteDialog } from './ConditionalDeleteDialog'
 import { useMediaTabStore } from './ContentTabs/mediaTabStore'
 import { DraftListToolbar } from './DraftListToolbar'
+import type { DraftViewMode } from './DraftListToolbar'
 import { GeneratingCard } from './GeneratingCard'
 import { LazyImage } from './LazyImage'
 import { MediaListSection } from './MediaListSection'
@@ -188,6 +189,85 @@ const DraftCard = memo(({ material, onClick, batchMode, selected, onToggleSelect
 
 DraftCard.displayName = 'DraftCard'
 
+const DraftRowCard = memo(({
+  material,
+  onClick,
+  batchMode,
+  selected,
+  onToggleSelect,
+  useCountLabel,
+  compactInfo,
+}: DraftCardProps & { compactInfo: boolean }) => {
+  const { t } = useTransClient('brandPromotion')
+  const coverUrl = material.coverUrl || '/images/placeholder.png'
+
+  const handleClick = useCallback(() => {
+    if (batchMode) {
+      onToggleSelect()
+      return
+    }
+    onClick()
+  }, [batchMode, onClick, onToggleSelect])
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-3 rounded-lg border p-2.5 mb-2 cursor-pointer transition-colors',
+        selected ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/40',
+      )}
+      onClick={handleClick}
+    >
+      {batchMode && (
+        <div
+          className={cn(
+            'w-5 h-5 rounded-full border flex items-center justify-center shrink-0',
+            selected ? 'bg-primary border-primary' : 'border-muted-foreground/40',
+          )}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect() }}
+        >
+          {selected && <Check className="w-3 h-3 text-primary-foreground" />}
+        </div>
+      )}
+
+      <div className="relative w-16 h-16 rounded-md overflow-hidden shrink-0 bg-muted">
+        <LazyImage
+          src={coverUrl}
+          alt={material.title || t('material.draft')}
+          width={64}
+          height={64}
+          className="w-full h-full object-cover"
+          skeletonClassName="rounded-md"
+          placeholderHeight={64}
+        />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium line-clamp-1">
+          {material.title || t('material.untitled')}
+        </p>
+        {!compactInfo && material.desc && (
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+            {material.desc}
+          </p>
+        )}
+        <div className="flex items-center gap-1 mt-1">
+          {material.model && (
+            <span className="inline-flex items-center rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
+              {material.model}
+            </span>
+          )}
+          {useCountLabel && (
+            <span className="inline-flex items-center rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary">
+              {useCountLabel}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+})
+DraftRowCard.displayName = 'DraftRowCard'
+
 // 骨架屏 - 随机高度模拟瀑布流效果（小红书风格）
 function DraftCardSkeleton({ index }: { index: number }) {
   // 根据 index 生成不同高度，模拟真实图片的随机比例
@@ -227,6 +307,8 @@ export const DraftListSection = memo(({ materialGroupId }: DraftListSectionProps
 
   const showTabs = !!materialGroupId
   const [activeTab, setActiveTab] = useState('all')
+  const [viewMode, setViewMode] = useState<DraftViewMode>('grid')
+  const [compactInfo, setCompactInfo] = useState(true)
 
   // materialGroupId 变化时，有 Tab 模式默认选中"全部"
   useEffect(() => {
@@ -336,36 +418,72 @@ export const DraftListSection = memo(({ materialGroupId }: DraftListSectionProps
   // 草稿内容区域
   const draftsContent = (
     <>
-      <DraftListToolbar />
+      <DraftListToolbar
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        compactInfo={compactInfo}
+        onToggleCompactInfo={() => setCompactInfo(v => !v)}
+      />
       <div>
-        <Masonry
-          breakpointCols={MASONRY_BREAKPOINTS}
-          className="flex -ml-4 w-auto"
-          columnClassName="pl-4 bg-clip-padding"
-          data-testid="draftbox-masonry-list"
-        >
-          {!batchMode && (
-            <ManualCreateCard onClick={openCreateMaterialModal} />
-          )}
+        {viewMode === 'grid'
+          ? (
+              <Masonry
+                breakpointCols={MASONRY_BREAKPOINTS}
+                className="flex -ml-4 w-auto"
+                columnClassName="pl-4 bg-clip-padding"
+                data-testid="draftbox-masonry-list"
+              >
+                {!batchMode && (
+                  <ManualCreateCard onClick={openCreateMaterialModal} />
+                )}
 
-          {/* 生成中卡片 - 批量模式隐藏 */}
-          {!batchMode && generatingCount > 0 && (
-            <GeneratingCard count={generatingCount} onClick={openGenerationDetailDialog} />
-          )}
+                {!batchMode && generatingCount > 0 && (
+                  <GeneratingCard count={generatingCount} onClick={openGenerationDetailDialog} />
+                )}
 
-          {/* 草稿数据 */}
-          {materials.map(material => (
-            <DraftCard
-              key={material.id}
-              material={material}
-              onClick={() => openDraftDetailDialog(material)}
-              batchMode={batchMode}
-              selected={selectedSet.has(material.id)}
-              onToggleSelect={() => toggleMaterialSelection(material.id)}
-              useCountLabel={material.useCount != null && material.useCount > 0 ? t('material.useCount', { count: material.useCount }) : undefined}
-            />
-          ))}
-        </Masonry>
+                {materials.map(material => (
+                  <DraftCard
+                    key={material.id}
+                    material={material}
+                    onClick={() => openDraftDetailDialog(material)}
+                    batchMode={batchMode}
+                    selected={selectedSet.has(material.id)}
+                    onToggleSelect={() => toggleMaterialSelection(material.id)}
+                    useCountLabel={material.useCount != null && material.useCount > 0 ? t('material.useCount', { count: material.useCount }) : undefined}
+                  />
+                ))}
+              </Masonry>
+            )
+          : (
+              <div data-testid="draftbox-list-view">
+                {!batchMode && (
+                  <Button variant="outline" size="sm" className="mb-3 cursor-pointer h-8 text-xs gap-1.5" onClick={openCreateMaterialModal}>
+                    <Plus className="h-3.5 w-3.5" />
+                    {t('detail.manualGenerate')}
+                  </Button>
+                )}
+
+                {!batchMode && generatingCount > 0 && (
+                  <Button variant="ghost" size="sm" className="mb-2 h-8 text-xs px-2 cursor-pointer" onClick={openGenerationDetailDialog}>
+                    <Rows3 className="h-3.5 w-3.5 mr-1.5" />
+                    {t('draftManage.generationDetail')}
+                  </Button>
+                )}
+
+                {materials.map(material => (
+                  <DraftRowCard
+                    key={material.id}
+                    material={material}
+                    onClick={() => openDraftDetailDialog(material)}
+                    batchMode={batchMode}
+                    selected={selectedSet.has(material.id)}
+                    onToggleSelect={() => toggleMaterialSelection(material.id)}
+                    useCountLabel={material.useCount != null && material.useCount > 0 ? t('material.useCount', { count: material.useCount }) : undefined}
+                    compactInfo={compactInfo}
+                  />
+                ))}
+              </div>
+            )}
 
         {/* 加载触发器 */}
         <div ref={loadMoreRef} />

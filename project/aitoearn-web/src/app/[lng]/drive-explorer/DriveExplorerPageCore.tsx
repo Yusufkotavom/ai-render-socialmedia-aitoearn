@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Progress } from '@/components/ui/progress'
 import { toast } from '@/lib/toast'
 import { useUserStore } from '@/store/user'
 
@@ -67,6 +68,13 @@ export function DriveExplorerPageCore() {
   const fileItems = useMemo(() => browseItems.filter(item => item.kind === 'file'), [browseItems])
   const selectedCount = selectedPaths.size
   const apiBaseUrl = useMemo(() => (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, ''), [])
+  const importPercent = useMemo(() => {
+    if (!importStatus) {
+      return 0
+    }
+    const safeTotal = Math.max(importStatus.total, 1)
+    return Math.max(0, Math.min(100, Math.round((importStatus.processed / safeTotal) * 100)))
+  }, [importStatus])
   const canGoBack = historyIndex > 0
   const canGoForward = historyIndex >= 0 && historyIndex < history.length - 1
 
@@ -732,6 +740,13 @@ export function DriveExplorerPageCore() {
             <CardTitle className="text-base">Import Job Status</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Progress</span>
+                <span>{importPercent}%</span>
+              </div>
+              <Progress value={importPercent} />
+            </div>
             <div className="text-sm text-muted-foreground break-all">
               Job:
               {' '}

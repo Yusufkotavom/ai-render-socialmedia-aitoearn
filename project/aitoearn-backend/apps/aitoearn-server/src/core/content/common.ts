@@ -91,6 +91,7 @@ export interface NewMaterial {
 }
 
 export interface UpMaterial {
+  groupId?: string
   title?: string
   desc?: string
   topics?: string[]

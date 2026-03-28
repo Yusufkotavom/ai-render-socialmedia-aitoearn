@@ -7,7 +7,7 @@
 
 import type { MaterialListFilters } from '@/api/material'
 import lodash from 'lodash'
-import { Search, Trash2 } from 'lucide-react'
+import { Grid3X3, Info, List, Search, Trash2 } from 'lucide-react'
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { usePlanDetailStore } from '@/app/[lng]/brand-promotion/planDetailStore'
@@ -15,8 +15,23 @@ import { useTransClient } from '@/app/i18n/client'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
-const DraftListToolbar = memo(() => {
+export type DraftViewMode = 'grid' | 'list'
+
+interface DraftListToolbarProps {
+  viewMode: DraftViewMode
+  onViewModeChange: (mode: DraftViewMode) => void
+  compactInfo: boolean
+  onToggleCompactInfo: () => void
+}
+
+const DraftListToolbar = memo(({
+  viewMode,
+  onViewModeChange,
+  compactInfo,
+  onToggleCompactInfo,
+}: DraftListToolbarProps) => {
   const { t } = useTransClient('brandPromotion')
 
   const {
@@ -79,15 +94,22 @@ const DraftListToolbar = memo(() => {
       <div className="flex items-center gap-3 mb-4">
         <div data-testid="draftbox-select-all-checkbox" className="flex items-center gap-2 cursor-pointer" onClick={handleToggleSelectAll}>
           <Checkbox checked={allSelected} onCheckedChange={handleToggleSelectAll} />
-          <span className="text-sm">{t('draftManage.selectAll')}</span>
+          <span className="text-xs">{t('draftManage.selectAll')}</span>
         </div>
-        <span className="text-sm text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {t('draftManage.selectedCount', { count: selectedMaterialIds.length })}
         </span>
         <div className="flex-1" />
-        <Button data-testid="draftbox-batch-cancel-btn" variant="ghost" size="sm" onClick={exitBatchMode} className="cursor-pointer">
-          {t('draftManage.cancel')}
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button data-testid="draftbox-batch-cancel-btn" variant="ghost" size="icon" onClick={exitBatchMode} className="cursor-pointer h-8 w-8">
+                <Info className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('draftManage.cancel')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     )
   }
@@ -102,31 +124,86 @@ const DraftListToolbar = memo(() => {
           value={searchValue}
           onChange={handleSearchChange}
           placeholder={t('draftManage.searchPlaceholder')}
-          className="pl-9 h-9"
+          className="pl-9 h-8 text-xs"
         />
       </div>
-      {/* 第二行：按钮组 */}
-      <div className="flex items-center gap-3 flex-wrap sm:ml-auto">
-        <Button
-          data-testid="draftbox-batch-mode-btn"
-          variant="outline"
-          size="sm"
-          onClick={enterBatchMode}
-          className="cursor-pointer gap-1.5"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {t('draftManage.batchDelete')}
-        </Button>
-        <Button
-          data-testid="draftbox-conditional-delete-btn"
-          variant="outline"
-          size="sm"
-          onClick={openConditionalDeleteDialog}
-          className="cursor-pointer gap-1.5"
-        >
-          {t('draftManage.conditionalDelete')}
-        </Button>
+      <div className="flex items-center gap-1.5 flex-wrap sm:ml-auto">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 cursor-pointer"
+                onClick={() => onViewModeChange('grid')}
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('mediaManagement.grid', 'Grid')}</TooltipContent>
+          </Tooltip>
 
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 cursor-pointer"
+                onClick={() => onViewModeChange('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('mediaManagement.list', 'List')}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                data-testid="draftbox-batch-mode-btn"
+                variant="outline"
+                size="icon"
+                onClick={enterBatchMode}
+                className="cursor-pointer h-8 w-8"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('draftManage.batchDelete')}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                data-testid="draftbox-conditional-delete-btn"
+                variant="outline"
+                size="icon"
+                onClick={openConditionalDeleteDialog}
+                className="cursor-pointer h-8 w-8 text-xs"
+              >
+                <span>#</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('draftManage.conditionalDelete')}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant={compactInfo ? 'secondary' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 cursor-pointer"
+                onClick={onToggleCompactInfo}
+              >
+                <Info className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{compactInfo ? t('common.hide', 'Hide') : t('common.show', 'Show')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   )
