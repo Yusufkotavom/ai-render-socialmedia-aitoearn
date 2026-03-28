@@ -27,15 +27,14 @@ import {
 import { VideoTaskInput } from './video.vo'
 import { VolcengineVideoService } from './volcengine'
 
-type VideoGenerationMode = 'text2video' | 'image2video' | 'flf2video' | 'lf2video' | 'multi-image2video' | 'video2video'
-type VideoGenerationPricing = {
+interface VideoGenerationPricing {
   resolution?: string
   aspectRatio?: string
   mode?: string
   duration?: number
   price: number
 }
-type VideoGenerationModelConfig = {
+interface VideoGenerationModelConfig {
   name: string
   description: string
   summary?: string
@@ -43,7 +42,7 @@ type VideoGenerationModelConfig = {
   tags: Array<{ 'en-US': string, 'zh-CN': string }>
   mainTag?: string
   channel: AiLogChannel
-  modes: VideoGenerationMode[]
+  modes: Array<'text2video' | 'image2video' | 'flf2video' | 'lf2video' | 'multi-image2video' | 'video2video'>
   resolutions: string[]
   durations: number[]
   maxInputImages: number

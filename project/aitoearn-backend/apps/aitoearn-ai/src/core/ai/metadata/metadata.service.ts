@@ -47,7 +47,6 @@ export class MetadataService {
 
   private pickModel(provider: 'auto' | 'groq' | 'gemini', requestedModel?: string): string {
     const chatModels = this.modelsConfigService.config.chat.map(item => item.name)
-    const defaultGroqModel = 'llama-3.3-70b-versatile'
     if (chatModels.length === 0) {
       throw new AppException(ResponseCode.InvalidModel)
     }
