@@ -61,7 +61,10 @@ export class MetadataService {
         }
         return normalized.includes('groq') || normalized.includes('llama') || normalized.includes('qwen')
       })
-      return matched ?? chatModels[0]
+      if (!matched) {
+        throw new AppException(ResponseCode.InvalidModel, { provider })
+      }
+      return matched
     }
 
     if (requestedModel?.trim()) {
@@ -74,14 +77,20 @@ export class MetadataService {
       const modelName = selectedModel.toLowerCase()
       if (provider === 'gemini' && !modelName.includes('gemini')) {
         const fallbackGemini = chatModels.find(model => model.toLowerCase().includes('gemini'))
-        return fallbackGemini ?? selectedModel
+        if (!fallbackGemini) {
+          throw new AppException(ResponseCode.InvalidModel, { provider, requestedModel: normalizedRequestedModel })
+        }
+        return fallbackGemini
       }
       if (provider === 'groq' && modelName.includes('gemini')) {
         const fallbackGroq = chatModels.find((model) => {
           const normalized = model.toLowerCase()
           return normalized.includes('groq') || normalized.includes('llama') || normalized.includes('qwen')
         })
-        return fallbackGroq ?? selectedModel
+        if (!fallbackGroq) {
+          throw new AppException(ResponseCode.InvalidModel, { provider, requestedModel: normalizedRequestedModel })
+        }
+        return fallbackGroq
       }
 
       return selectedModel
@@ -231,6 +240,9 @@ export class MetadataService {
 
   async generateMetadata(userId: string, request: GenerateMetadataDto): Promise<GenerateMetadataVo> {
     let model = this.pickModel(request.provider, request.model)
+    let activeProvider: 'groq' | 'gemini' = request.provider === 'auto'
+      ? this.inferProviderByModel(model)
+      : request.provider
     const renderedPromptTemplate = this.renderPromptTemplate(request.promptTemplate, request)
 
     const prompt = request.item.prompt?.trim().length
@@ -255,7 +267,7 @@ export class MetadataService {
     let usage: { inputTokens?: number, outputTokens?: number } = {}
 
     try {
-      if (model.toLowerCase().includes('gemini')) {
+      if (activeProvider === 'gemini') {
         const geminiResult = await this.chatService.userGeminiGenerateContent({
           userId,
           userType: UserType.User,
@@ -292,13 +304,12 @@ export class MetadataService {
         || message.includes('invalid_api_key')
         || message.includes('UNAUTHENTICATED')
         || message.includes('Unauthorized')
-      const currentProvider = this.inferProviderByModel(model)
-      const sameProviderFallbackModel = this.pickAlternativeModelByProvider(currentProvider, model)
+      const sameProviderFallbackModel = this.pickAlternativeModelByProvider(activeProvider, model)
 
       if (hasAuthError && sameProviderFallbackModel) {
         model = sameProviderFallbackModel
 
-        if (currentProvider === 'gemini') {
+        if (activeProvider === 'gemini') {
           const geminiResult = await this.chatService.userGeminiGenerateContent({
             userId,
             userType: UserType.User,
@@ -336,11 +347,11 @@ export class MetadataService {
 
     const parsed = this.parseGeneratedMetadata(generatedText)
     const finalMetadata = this.applyStrategy(request.strategy, request.item, parsed)
-    const resolvedProvider = request.provider === 'auto' ? this.inferProviderByModel(model) : request.provider
+    activeProvider = request.provider === 'auto' ? this.inferProviderByModel(model) : request.provider
 
     return {
       ...finalMetadata,
-      provider: resolvedProvider,
+      provider: activeProvider,
       model,
       usage,
     }
