@@ -9,18 +9,20 @@
 import type { MediaItem } from '@/api/types/media'
 import type { PromotionMaterial } from '@/app/[lng]/brand-promotion/brandPromotionStore/types'
 import type { MediaPreviewItem } from '@/components/common/MediaPreview'
-import { Inbox } from 'lucide-react'
+import { Check, Inbox } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import Masonry from 'react-masonry-css'
 import { useShallow } from 'zustand/react/shallow'
 import { usePlanDetailStore } from '@/app/[lng]/brand-promotion/planDetailStore'
 import { useTransClient } from '@/app/i18n/client'
 import { MediaPreview } from '@/components/common/MediaPreview'
+import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getOssUrl } from '@/utils/oss'
 import { useMediaTabStore } from '../ContentTabs/mediaTabStore'
 import { LazyImage } from '../LazyImage'
 import { MediaCard } from '../MediaCard'
+import type { DraftViewMode } from '../DraftListToolbar'
 
 /**
  * 瀑布流断点配置
@@ -104,9 +106,19 @@ AllDraftCard.displayName = 'AllDraftCard'
 
 interface AllListSectionProps {
   materialGroupId: string
+  viewMode?: DraftViewMode
+  batchMode?: boolean
+  selectedKeys?: string[]
+  onToggleSelect?: (key: string) => void
 }
 
-export const AllListSection = memo(({ materialGroupId }: AllListSectionProps) => {
+export const AllListSection = memo(({
+  materialGroupId,
+  viewMode = 'grid',
+  batchMode = false,
+  selectedKeys = [],
+  onToggleSelect,
+}: AllListSectionProps) => {
   const { t } = useTransClient('material')
   const { t: tBrand } = useTransClient('brandPromotion')
   const loadMoreRef = useRef<HTMLDivElement>(null)
@@ -222,34 +234,100 @@ export const AllListSection = memo(({ materialGroupId }: AllListSectionProps) =>
 
   return (
     <>
-      <Masonry
-        breakpointCols={MASONRY_BREAKPOINTS}
-        className="flex -ml-4 w-auto"
-        columnClassName="pl-4 bg-clip-padding"
-      >
-        {mergedList.map((item) => {
-          if (item.source === 'draft') {
-            const material = item.data as PromotionMaterial
-            return (
-              <AllDraftCard
-                key={`draft-${item.id}`}
-                material={material}
-                onClick={() => openDraftDetailDialog(material)}
-              />
-            )
-          }
-          else {
-            const media = item.data as MediaItem
-            return (
-              <MediaCard
-                key={`${item.source}-${item.id}`}
-                media={media}
-                onClick={handleMediaClick}
-              />
-            )
-          }
-        })}
-      </Masonry>
+      {viewMode === 'grid'
+        ? (
+            <Masonry
+              breakpointCols={MASONRY_BREAKPOINTS}
+              className="flex -ml-4 w-auto"
+              columnClassName="pl-4 bg-clip-padding"
+            >
+              {mergedList.map((item) => {
+                const itemKey = `${item.source}:${item.id}`
+                const selected = selectedKeys.includes(itemKey)
+                return (
+                  <div key={itemKey} className="relative">
+                    {batchMode && (
+                      <div
+                        className={cn(
+                          'absolute top-2 right-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-sm cursor-pointer',
+                          selected
+                            ? 'bg-primary border-primary'
+                            : 'bg-background/90 border-muted-foreground/30',
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onToggleSelect?.(itemKey)
+                        }}
+                      >
+                        {selected && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
+                      </div>
+                    )}
+                    {item.source === 'draft'
+                      ? (
+                          <div onClick={() => (batchMode ? onToggleSelect?.(itemKey) : openDraftDetailDialog(item.data as PromotionMaterial))}>
+                            <AllDraftCard
+                              material={item.data as PromotionMaterial}
+                              onClick={() => openDraftDetailDialog(item.data as PromotionMaterial)}
+                            />
+                          </div>
+                        )
+                      : (
+                          <div onClick={() => (batchMode ? onToggleSelect?.(itemKey) : handleMediaClick(item.data as MediaItem))}>
+                            <MediaCard
+                              media={item.data as MediaItem}
+                              onClick={handleMediaClick}
+                            />
+                          </div>
+                        )}
+                  </div>
+                )
+              })}
+            </Masonry>
+          )
+        : (
+            <div className="space-y-2">
+              {mergedList.map((item) => {
+                const itemKey = `${item.source}:${item.id}`
+                const selected = selectedKeys.includes(itemKey)
+                const isDraft = item.source === 'draft'
+                const draft = isDraft ? (item.data as PromotionMaterial) : null
+                const media = !isDraft ? (item.data as MediaItem) : null
+                const thumb = isDraft ? (draft?.coverUrl || '/images/placeholder.png') : getOssUrl(media?.thumbUrl || media?.url || '')
+                const title = isDraft ? (draft?.title || 'Draft') : (media?.title || media?.type || 'Media')
+                return (
+                  <div
+                    key={itemKey}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg border p-2.5 cursor-pointer',
+                      selected ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/40',
+                    )}
+                    onClick={() => (batchMode
+                      ? onToggleSelect?.(itemKey)
+                      : (isDraft ? openDraftDetailDialog(draft as PromotionMaterial) : handleMediaClick(media as MediaItem)))}
+                  >
+                    {batchMode && (
+                      <div
+                        className={cn(
+                          'w-5 h-5 rounded-full border flex items-center justify-center shrink-0',
+                          selected ? 'bg-primary border-primary' : 'border-muted-foreground/40',
+                        )}
+                        onClick={(e) => { e.stopPropagation(); onToggleSelect?.(itemKey) }}
+                      >
+                        {selected && <Check className="w-3 h-3 text-primary-foreground" />}
+                      </div>
+                    )}
+                    <div className="relative w-16 h-16 rounded-md overflow-hidden shrink-0 bg-muted">
+                      <LazyImage src={thumb} alt={title} width={64} height={64} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium line-clamp-1">{title}</p>
+                      <p className="text-xs text-muted-foreground">{item.source}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
       {/* 加载触发器 */}
       <div ref={loadMoreRef} />

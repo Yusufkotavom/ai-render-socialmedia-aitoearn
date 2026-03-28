@@ -16,6 +16,8 @@ import Image from 'next/image'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import Masonry from 'react-masonry-css'
 import { useShallow } from 'zustand/react/shallow'
+import { apiBatchDeleteMaterials } from '@/api/material'
+import { apiBatchDeleteMedia } from '@/api/media'
 import { usePlanDetailStore } from '@/app/[lng]/brand-promotion/planDetailStore'
 import { AccountPlatInfoMap } from '@/app/config/platConfig'
 import { useTransClient } from '@/app/i18n/client'
@@ -25,6 +27,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { confirm } from '@/lib/confirm'
+import { toast } from '@/lib/toast'
 import { AllListSection } from './AllListSection'
 import { BatchActionBar } from './BatchActionBar'
 import { ConditionalDeleteDialog } from './ConditionalDeleteDialog'
@@ -309,6 +313,10 @@ export const DraftListSection = memo(({ materialGroupId }: DraftListSectionProps
   const [activeTab, setActiveTab] = useState('all')
   const [viewMode, setViewMode] = useState<DraftViewMode>('grid')
   const [compactInfo, setCompactInfo] = useState(true)
+  const [mediaBatchMode, setMediaBatchMode] = useState(false)
+  const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>([])
+  const [selectedAllKeys, setSelectedAllKeys] = useState<string[]>([])
+  const [batchDeletingMedia, setBatchDeletingMedia] = useState(false)
 
   // materialGroupId 变化时，有 Tab 模式默认选中"全部"
   useEffect(() => {
@@ -345,6 +353,7 @@ export const DraftListSection = memo(({ materialGroupId }: DraftListSectionProps
   const openDraftDetailDialog = usePlanDetailStore(state => state.openDraftDetailDialog)
   const openGenerationDetailDialog = usePlanDetailStore(state => state.openGenerationDetailDialog)
   const toggleMaterialSelection = usePlanDetailStore(state => state.toggleMaterialSelection)
+  const fetchMaterials = usePlanDetailStore(state => state.fetchMaterials)
 
   const { videoTotal, imgTotal, allTotal } = useMediaTabStore(
     useShallow(state => ({
@@ -361,10 +370,15 @@ export const DraftListSection = memo(({ materialGroupId }: DraftListSectionProps
   const allInitialized = useMediaTabStore(state => state.all.initialized)
 
   const selectedSet = new Set(selectedMaterialIds)
+  const selectedMediaSet = new Set(selectedMediaIds)
+  const selectedAllSet = new Set(selectedAllKeys)
 
   // Tab 切换处理
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value)
+    setMediaBatchMode(false)
+    setSelectedMediaIds([])
+    setSelectedAllKeys([])
 
     // 首次切换到对应 Tab 时触发加载
     if (value === 'all' && !allInitialized && materialGroupId && currentPlan) {
@@ -377,6 +391,80 @@ export const DraftListSection = memo(({ materialGroupId }: DraftListSectionProps
       fetchMediaList(materialGroupId, 'img')
     }
   }, [allInitialized, videoInitialized, imgInitialized, materialGroupId, currentPlan, fetchAllList, fetchMediaList])
+
+  const toggleMediaSelection = useCallback((id: string) => {
+    setSelectedMediaIds((prev) => {
+      if (prev.includes(id))
+        return prev.filter(item => item !== id)
+      return [...prev, id]
+    })
+  }, [])
+
+  const toggleAllSelection = useCallback((key: string) => {
+    setSelectedAllKeys((prev) => {
+      if (prev.includes(key))
+        return prev.filter(item => item !== key)
+      return [...prev, key]
+    })
+  }, [])
+
+  const handleDeleteMediaBatch = useCallback(() => {
+    const count = activeTab === 'all' ? selectedAllKeys.length : selectedMediaIds.length
+    if (count === 0)
+      return
+
+    confirm({
+      title: t('draftManage.batchDeleteConfirmTitle'),
+      content: t('draftManage.batchDeleteConfirmDesc', { count }),
+      okType: 'destructive',
+      onOk: async () => {
+        setBatchDeletingMedia(true)
+        try {
+          if (!currentPlan || !materialGroupId) {
+            toast.error(t('draftManage.batchDeleteFailed'))
+            return
+          }
+
+          if (activeTab === 'all') {
+            const draftIds = selectedAllKeys.filter(key => key.startsWith('draft:')).map(key => key.replace('draft:', ''))
+            const mediaIds = selectedAllKeys
+              .filter(key => key.startsWith('video:') || key.startsWith('img:'))
+              .map((key) => {
+                const [, id] = key.split(':')
+                return id
+              })
+
+            if (draftIds.length > 0) {
+              await apiBatchDeleteMaterials(draftIds)
+            }
+            if (mediaIds.length > 0) {
+              await apiBatchDeleteMedia(mediaIds)
+            }
+            setSelectedAllKeys([])
+          }
+          else {
+            await apiBatchDeleteMedia(selectedMediaIds)
+            setSelectedMediaIds([])
+          }
+
+          await fetchMaterials(currentPlan.id, 1)
+          await Promise.all([
+            fetchMediaList(materialGroupId, 'video'),
+            fetchMediaList(materialGroupId, 'img'),
+            fetchAllList(materialGroupId, currentPlan.id),
+          ])
+          toast.success(t('draftManage.batchDeleteSuccess'))
+        }
+        catch {
+          toast.error(t('draftManage.batchDeleteFailed'))
+        }
+        finally {
+          setBatchDeletingMedia(false)
+          setMediaBatchMode(false)
+        }
+      },
+    })
+  }, [activeTab, currentPlan, fetchAllList, fetchMaterials, fetchMediaList, materialGroupId, selectedAllKeys, selectedMediaIds, t])
 
   // IntersectionObserver 实现无限滚动
   useEffect(() => {
@@ -660,8 +748,21 @@ export const DraftListSection = memo(({ materialGroupId }: DraftListSectionProps
         </CardHeader>
 
         <TabsContent value="all" className="mt-0">
-          <CardContent>
-            <AllListSection materialGroupId={materialGroupId} />
+          <CardContent className={cn(mediaBatchMode && 'pb-16')}>
+            <DraftListToolbar
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              compactInfo={compactInfo}
+              onToggleCompactInfo={() => setCompactInfo(v => !v)}
+              allowDraftActions={false}
+            />
+            <AllListSection
+              materialGroupId={materialGroupId}
+              viewMode={viewMode}
+              batchMode={mediaBatchMode}
+              selectedKeys={selectedAllKeys}
+              onToggleSelect={toggleAllSelection}
+            />
           </CardContent>
         </TabsContent>
 
@@ -672,20 +773,90 @@ export const DraftListSection = memo(({ materialGroupId }: DraftListSectionProps
         </TabsContent>
 
         <TabsContent value="video" className="mt-0">
-          <CardContent>
-            <MediaListSection type="video" materialGroupId={materialGroupId} />
+          <CardContent className={cn(mediaBatchMode && 'pb-16')}>
+            <DraftListToolbar
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              compactInfo={compactInfo}
+              onToggleCompactInfo={() => setCompactInfo(v => !v)}
+              allowDraftActions={false}
+            />
+            <MediaListSection
+              type="video"
+              materialGroupId={materialGroupId}
+              viewMode={viewMode}
+              batchMode={mediaBatchMode}
+              selectedIds={selectedMediaIds}
+              onToggleSelect={toggleMediaSelection}
+            />
           </CardContent>
         </TabsContent>
 
         <TabsContent value="img" className="mt-0">
-          <CardContent>
-            <MediaListSection type="img" materialGroupId={materialGroupId} />
+          <CardContent className={cn(mediaBatchMode && 'pb-16')}>
+            <DraftListToolbar
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              compactInfo={compactInfo}
+              onToggleCompactInfo={() => setCompactInfo(v => !v)}
+              allowDraftActions={false}
+            />
+            <MediaListSection
+              type="img"
+              materialGroupId={materialGroupId}
+              viewMode={viewMode}
+              batchMode={mediaBatchMode}
+              selectedIds={selectedMediaIds}
+              onToggleSelect={toggleMediaSelection}
+            />
           </CardContent>
         </TabsContent>
 
         {batchMode && <BatchActionBar />}
+        {showTabs && activeTab !== 'drafts' && mediaBatchMode && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-3 md:px-6 py-2.5">
+            <div className="max-w-screen-2xl mx-auto flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">
+                {activeTab === 'all' ? selectedAllKeys.length : selectedMediaIds.length}
+                {' '}
+                selected
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => {
+                  setMediaBatchMode(false)
+                  setSelectedMediaIds([])
+                  setSelectedAllKeys([])
+                }}
+                >
+                  <span className="text-[10px]">X</span>
+                </Button>
+                <Button
+                  size="icon"
+                  variant="destructive"
+                  className="h-8 w-8"
+                  disabled={(activeTab === 'all' ? selectedAllKeys.length : selectedMediaIds.length) === 0 || batchDeletingMedia}
+                  onClick={handleDeleteMediaBatch}
+                >
+                  <span className="text-[10px]">{batchDeletingMedia ? '...' : 'DEL'}</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         <ConditionalDeleteDialog />
       </Card>
+      {showTabs && activeTab !== 'drafts' && !mediaBatchMode && (
+        <div className="fixed bottom-3 right-3 z-40">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-8 text-xs"
+            onClick={() => setMediaBatchMode(true)}
+          >
+            {t('draftManage.batchDelete')}
+          </Button>
+        </div>
+      )}
     </Tabs>
   )
 })

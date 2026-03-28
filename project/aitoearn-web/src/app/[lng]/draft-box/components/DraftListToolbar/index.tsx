@@ -24,6 +24,7 @@ interface DraftListToolbarProps {
   onViewModeChange: (mode: DraftViewMode) => void
   compactInfo: boolean
   onToggleCompactInfo: () => void
+  allowDraftActions?: boolean
 }
 
 const DraftListToolbar = memo(({
@@ -31,6 +32,7 @@ const DraftListToolbar = memo(({
   onViewModeChange,
   compactInfo,
   onToggleCompactInfo,
+  allowDraftActions = true,
 }: DraftListToolbarProps) => {
   const { t } = useTransClient('brandPromotion')
 
@@ -89,7 +91,7 @@ const DraftListToolbar = memo(({
     }
   }, [allSelected, deselectAllMaterials, selectAllLoadedMaterials])
 
-  if (batchMode) {
+  if (allowDraftActions && batchMode) {
     return (
       <div className="flex items-center gap-3 mb-4">
         <div data-testid="draftbox-select-all-checkbox" className="flex items-center gap-2 cursor-pointer" onClick={handleToggleSelectAll}>
@@ -159,35 +161,39 @@ const DraftListToolbar = memo(({
             <TooltipContent>{t('mediaManagement.list', 'List')}</TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                data-testid="draftbox-batch-mode-btn"
-                variant="outline"
-                size="icon"
-                onClick={enterBatchMode}
-                className="cursor-pointer h-8 w-8"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t('draftManage.batchDelete')}</TooltipContent>
-          </Tooltip>
+          {allowDraftActions && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    data-testid="draftbox-batch-mode-btn"
+                    variant="outline"
+                    size="icon"
+                    onClick={enterBatchMode}
+                    className="cursor-pointer h-8 w-8"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('draftManage.batchDelete')}</TooltipContent>
+              </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                data-testid="draftbox-conditional-delete-btn"
-                variant="outline"
-                size="icon"
-                onClick={openConditionalDeleteDialog}
-                className="cursor-pointer h-8 w-8 text-xs"
-              >
-                <span>#</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t('draftManage.conditionalDelete')}</TooltipContent>
-          </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    data-testid="draftbox-conditional-delete-btn"
+                    variant="outline"
+                    size="icon"
+                    onClick={openConditionalDeleteDialog}
+                    className="cursor-pointer h-8 w-8 text-xs"
+                  >
+                    <span>#</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('draftManage.conditionalDelete')}</TooltipContent>
+              </Tooltip>
+            </>
+          )}
 
           <Tooltip>
             <TooltipTrigger asChild>

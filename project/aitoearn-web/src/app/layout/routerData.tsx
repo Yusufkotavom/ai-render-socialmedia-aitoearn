@@ -4,6 +4,7 @@
  */
 import {
   Bot,
+  LayoutPanelTop,
   HardDrive,
   History,
   Home,
@@ -61,5 +62,11 @@ export const routerData: IRouterDataItem[] = [
     translationKey: 'driveExplorer',
     path: '/drive-explorer',
     icon: <HardDrive size={20} />,
+  },
+  {
+    name: 'Content Manager',
+    translationKey: 'contentManager',
+    path: '/new-page-content',
+    icon: <LayoutPanelTop size={20} />,
   },
 ]

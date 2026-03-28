@@ -40,6 +40,11 @@ export function deleteMedia(id: string) {
   return http.delete(`media/${id}`)
 }
 
+// 批量删除媒体资源
+export function apiBatchDeleteMedia(ids: string[]) {
+  return http.delete('media/ids', { ids })
+}
+
 // 获取媒体资源列表
 export function getMediaList(
   filter: { groupId?: string, materialGroupId?: string },

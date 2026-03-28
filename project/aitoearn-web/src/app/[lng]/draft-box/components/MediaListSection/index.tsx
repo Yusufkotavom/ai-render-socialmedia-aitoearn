@@ -8,16 +8,19 @@
 
 import type { MediaItem } from '@/api/types/media'
 import type { MediaPreviewItem } from '@/components/common/MediaPreview'
-import { ImageIcon, Video } from 'lucide-react'
+import { Check, ImageIcon, Video } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import Masonry from 'react-masonry-css'
 import { useShallow } from 'zustand/react/shallow'
 import { useTransClient } from '@/app/i18n/client'
 import { MediaPreview } from '@/components/common/MediaPreview'
+import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getOssUrl } from '@/utils/oss'
 import { useMediaTabStore } from '../ContentTabs/mediaTabStore'
+import { LazyImage } from '../LazyImage'
 import { MediaCard } from '../MediaCard'
+import type { DraftViewMode } from '../DraftListToolbar'
 
 /**
  * 瀑布流断点配置
@@ -33,6 +36,10 @@ const MASONRY_BREAKPOINTS = {
 interface MediaListSectionProps {
   type: 'video' | 'img'
   materialGroupId: string
+  viewMode?: DraftViewMode
+  batchMode?: boolean
+  selectedIds?: string[]
+  onToggleSelect?: (id: string) => void
 }
 
 // 骨架屏
@@ -57,7 +64,67 @@ const LoadingIndicator = memo(() => (
 ))
 LoadingIndicator.displayName = 'LoadingIndicator'
 
-export const MediaListSection = memo(({ type, materialGroupId }: MediaListSectionProps) => {
+const MediaRowCard = memo(({
+  media,
+  onClick,
+  batchMode,
+  selected,
+  onToggleSelect,
+}: {
+  media: MediaItem
+  onClick: (media: MediaItem) => void
+  batchMode: boolean
+  selected: boolean
+  onToggleSelect: () => void
+}) => {
+  const cover = getOssUrl(media.thumbUrl || media.url)
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-3 rounded-lg border p-2.5 mb-2 cursor-pointer transition-colors',
+        selected ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/40',
+      )}
+      onClick={() => (batchMode ? onToggleSelect() : onClick(media))}
+    >
+      {batchMode && (
+        <div
+          className={cn(
+            'w-5 h-5 rounded-full border flex items-center justify-center shrink-0',
+            selected ? 'bg-primary border-primary' : 'border-muted-foreground/40',
+          )}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect() }}
+        >
+          {selected && <Check className="w-3 h-3 text-primary-foreground" />}
+        </div>
+      )}
+      <div className="relative w-16 h-16 rounded-md overflow-hidden shrink-0 bg-muted">
+        <LazyImage
+          src={cover}
+          alt={media.title || ''}
+          width={64}
+          height={64}
+          className="w-full h-full object-cover"
+          skeletonClassName="rounded-md"
+          placeholderHeight={64}
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium line-clamp-1">{media.title || media.type.toUpperCase()}</p>
+        <p className="text-xs text-muted-foreground line-clamp-1">{media.type}</p>
+      </div>
+    </div>
+  )
+})
+MediaRowCard.displayName = 'MediaRowCard'
+
+export const MediaListSection = memo(({
+  type,
+  materialGroupId,
+  viewMode = 'grid',
+  batchMode = false,
+  selectedIds = [],
+  onToggleSelect,
+}: MediaListSectionProps) => {
   const { t } = useTransClient('material')
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
@@ -163,19 +230,55 @@ export const MediaListSection = memo(({ type, materialGroupId }: MediaListSectio
 
   return (
     <>
-      <Masonry
-        breakpointCols={MASONRY_BREAKPOINTS}
-        className="flex -ml-4 w-auto"
-        columnClassName="pl-4 bg-clip-padding"
-      >
-        {list.map(media => (
-          <MediaCard
-            key={media._id}
-            media={media}
-            onClick={handleMediaClick}
-          />
-        ))}
-      </Masonry>
+      {viewMode === 'grid'
+        ? (
+            <Masonry
+              breakpointCols={MASONRY_BREAKPOINTS}
+              className="flex -ml-4 w-auto"
+              columnClassName="pl-4 bg-clip-padding"
+            >
+              {list.map((media) => {
+                const selected = selectedIds.includes(media._id)
+                return (
+                  <div key={media._id} className="relative mb-4">
+                    {batchMode && (
+                      <div
+                        className={cn(
+                          'absolute top-2 right-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-sm cursor-pointer',
+                          selected
+                            ? 'bg-primary border-primary'
+                            : 'bg-background/90 border-muted-foreground/30',
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onToggleSelect?.(media._id)
+                        }}
+                      >
+                        {selected && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
+                      </div>
+                    )}
+                    <div onClick={() => (batchMode ? onToggleSelect?.(media._id) : handleMediaClick(media))}>
+                      <MediaCard media={media} onClick={handleMediaClick} />
+                    </div>
+                  </div>
+                )
+              })}
+            </Masonry>
+          )
+        : (
+            <div>
+              {list.map(media => (
+                <MediaRowCard
+                  key={media._id}
+                  media={media}
+                  onClick={handleMediaClick}
+                  batchMode={batchMode}
+                  selected={selectedIds.includes(media._id)}
+                  onToggleSelect={() => onToggleSelect?.(media._id)}
+                />
+              ))}
+            </div>
+          )}
 
       {/* 加载触发器 */}
       <div ref={loadMoreRef} />
