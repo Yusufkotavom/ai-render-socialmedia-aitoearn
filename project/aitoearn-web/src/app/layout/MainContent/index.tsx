@@ -26,7 +26,7 @@ export function MainContent({ children, banner }: MainContentProps) {
       {banner}
       <div
         id="main-content"
-        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden touch-pan-y [webkit-overflow-scrolling:touch]"
       >
         {children}
       </div>

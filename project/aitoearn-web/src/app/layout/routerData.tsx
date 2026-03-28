@@ -4,6 +4,7 @@
  */
 import {
   Bot,
+  HardDrive,
   History,
   Home,
   Sparkles,
@@ -54,5 +55,11 @@ export const routerData: IRouterDataItem[] = [
     translationKey: 'header.agentAssets',
     path: '/agent-assets',
     icon: <Bot size={20} />,
+  },
+  {
+    name: 'Drive Explorer',
+    translationKey: 'driveExplorer',
+    path: '/drive-explorer',
+    icon: <HardDrive size={20} />,
   },
 ]

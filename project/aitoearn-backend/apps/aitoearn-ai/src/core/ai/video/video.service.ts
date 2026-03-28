@@ -191,6 +191,7 @@ export class VideoService {
     const { model } = request
 
     const modelConfig = this.modelsConfigService.config.video.generation.find(m => m.name === model)
+      || pollinationsVideoFallbackModels.find(m => m.name === model)
     if (!modelConfig) {
       throw new AppException(ResponseCode.InvalidModel)
     }

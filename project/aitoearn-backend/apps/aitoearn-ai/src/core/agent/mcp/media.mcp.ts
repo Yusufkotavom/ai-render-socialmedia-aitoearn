@@ -4,6 +4,7 @@ import { FileUtil, UserType } from '@yikart/common'
 import { AiLogStatus } from '@yikart/mongodb'
 import dayjs from 'dayjs'
 import { z } from 'zod'
+import { config } from '../../../config'
 import { ImageService } from '../../ai/image'
 import { geminiVeoVideoCreateRequestSchema, GeminiVideoService, GrokVideoService, OpenAIVideoService } from '../../ai/video'
 import { McpServerName } from '../agent.constants'
@@ -32,6 +33,7 @@ const pollinationsVideoSchema = z.object({
   model: z.enum(['veo-3.1', 'seedance']).default('veo-3.1'),
   width: z.number().int().min(256).max(1920).default(720),
   height: z.number().int().min(256).max(1920).default(1280),
+  image: z.string().url().optional(),
   seed: z.number().int().optional(),
   safe: z.boolean().optional(),
 })
@@ -513,14 +515,21 @@ Available models (from Pollinations docs ecosystem):
 - veo-3.1 (default)
 - seedance
 
+Generation Modes:
+- Text-to-video: Only provide prompt
+- Image-to-video: Provide prompt + image (URL of reference image)
+
 Returns a direct media URL from Pollinations.`,
       pollinationsVideoSchema.shape,
-      async ({ prompt, model, width, height, seed, safe }) => {
+      async ({ prompt, model, width, height, image, seed, safe }) => {
         const videoBaseUrl = process.env['POLLINATIONS_VIDEO_BASE_URL'] || 'https://video.pollinations.ai'
         const url = new URL(`${videoBaseUrl}/prompt/${encodeURIComponent(prompt)}`)
         url.searchParams.set('model', model)
         url.searchParams.set('width', String(width))
         url.searchParams.set('height', String(height))
+        if (image) {
+          url.searchParams.set('image', image)
+        }
         if (seed != null) {
           url.searchParams.set('seed', String(seed))
         }

@@ -21,6 +21,7 @@ import { useUserStore } from '@/store/user'
 import { isPublicPage } from '@/utils/route'
 
 export function Providers({ children, lng, autoLoginToken }: { children: React.ReactNode, lng: string, autoLoginToken?: string }) {
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1094109734611-flskoscgp609mecqk9ablvc6i3205vqk.apps.googleusercontent.com'
   const pathname = usePathname()
   const router = useRouter()
   // 用于追踪是否已经在当前路由弹出过登录框，避免重复弹出
@@ -100,7 +101,7 @@ export function Providers({ children, lng, autoLoginToken }: { children: React.R
   return (
     <>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-        <GoogleOAuthProvider clientId="1094109734611-flskoscgp609mecqk9ablvc6i3205vqk.apps.googleusercontent.com">
+        <GoogleOAuthProvider clientId={googleClientId}>
           <Toaster position="top-center" richColors />
           {/* 专用右上角通知中心（不影响现有 toast） */}
           <NotificationCenter />

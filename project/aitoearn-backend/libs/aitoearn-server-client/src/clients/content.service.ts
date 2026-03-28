@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { AxiosRequestConfig } from 'axios'
-import { Material, MaterialGroup, MaterialTask, NewMaterialTask } from '../interfaces'
+import { Material, MaterialGroup, MaterialTask, NewMaterial, NewMaterialTask } from '../interfaces'
 import { BaseService } from './base.service'
 
 @Injectable()
@@ -60,6 +60,15 @@ export class ContentService extends BaseService {
       data,
     }
     return this.request<MaterialTask>(url, config)
+  }
+
+  async createMaterial(data: NewMaterial) {
+    const url = `/internal/content/material/create`
+    const config: AxiosRequestConfig = {
+      method: 'POST',
+      data,
+    }
+    return this.request<Material>(url, config)
   }
 
   async previewMaterialTask(id: string) {

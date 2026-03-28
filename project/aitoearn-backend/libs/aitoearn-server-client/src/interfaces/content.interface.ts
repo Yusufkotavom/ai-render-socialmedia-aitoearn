@@ -62,13 +62,19 @@ export interface MaterialMedia {
 }
 
 export interface NewMaterial {
+  userId?: string
+  userType?: UserType
   groupId: string // 所属组ID
   coverUrl?: string
   mediaList: MaterialMedia[]
   title: string
   desc?: string
+  type?: MaterialType
+  status?: MaterialStatus
+  topics?: string[]
   location?: number[]
   option?: Record<string, any>
+  autoDeleteMedia?: boolean
 }
 
 export interface NewMaterialTask {

@@ -138,6 +138,7 @@ services:
     volumes:
       - ./project/aitoearn-backend/apps/aitoearn-ai/config/config.js:/app/config.js:ro
       - ./runtime/placeholder-gemini-key.json:/tmp/placeholder-gemini-key.json:ro
+      - /mnt/social-drive:/mnt/social-drive:ro,rshared
     networks:
       - aitoearn-network
     environment:
@@ -291,6 +292,7 @@ services:
       NEXT_PUBLIC_APP_DOMAIN: ${APP_DOMAIN:-api.piiblog.net}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://${APP_DOMAIN:-api.piiblog.net}}
       NEXT_PUBLIC_DOCS_URL: ${NEXT_PUBLIC_DOCS_URL:-https://docs.aitoearn.ai}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
 
   nginx:
     image: nginx:alpine
