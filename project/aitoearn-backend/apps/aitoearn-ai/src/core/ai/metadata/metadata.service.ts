@@ -370,16 +370,6 @@ export class MetadataService {
         generatedText = JSON.stringify(localFallback)
         model = 'local-fallback'
       }
-      else if (hasAuthError) {
-        const localFallback = this.buildLocalFallbackMetadata(request.item)
-        generatedText = JSON.stringify(localFallback)
-        model = 'local-fallback'
-      }
-      else if (hasAuthError) {
-        const localFallback = this.buildLocalFallbackMetadata(request.item)
-        generatedText = JSON.stringify(localFallback)
-        model = 'local-fallback'
-      }
       else {
         this.logger.warn({ error }, 'Metadata provider call failed, using local fallback')
         const localFallback = this.buildLocalFallbackMetadata(request.item)

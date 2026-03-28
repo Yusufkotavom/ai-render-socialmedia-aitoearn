@@ -125,18 +125,21 @@ export class ChatService {
       route: isGroqCompatibleModel ? 'groq-openai-compatible' : 'default-openai-compatible',
     }, 'Chat completion routing')
 
-    const result = await this.openaiService.createChatCompletion({
-      model,
-      messages: langchainMessages,
-      ...params,
-      ...(isGroqCompatibleModel && {
-        apiKey: config.ai.grok.apiKey,
-        configuration: {
-          baseURL: 'https://api.groq.com/openai/v1',
-        },
-      }),
-      modalities: params.modalities as OpenAIClient.Chat.ChatCompletionModality[],
-    })
+    const result = isGroqCompatibleModel
+      ? await this.openaiService.createGroqChatCompletion({
+          model,
+          messages: langchainMessages,
+          ...params,
+          groqApiKey: config.ai.grok.apiKey,
+          groqBaseURL: 'https://api.groq.com/openai/v1',
+          modalities: params.modalities as OpenAIClient.Chat.ChatCompletionModality[],
+        })
+      : await this.openaiService.createChatCompletion({
+          model,
+          messages: langchainMessages,
+          ...params,
+          modalities: params.modalities as OpenAIClient.Chat.ChatCompletionModality[],
+        })
 
     const usage = result.usage_metadata
     if (!usage) {
