@@ -19,5 +19,6 @@
   "uptime": "稼働状況",
   "driveExplorer": "ドライブエクスプローラー",
   "taskSquare": "ゴールドラッシュ広場",
-  "contentManager": "Content Manager"
+  "contentManager": "Content Manager",
+  "contentScheduler": "Content Scheduler"
 }

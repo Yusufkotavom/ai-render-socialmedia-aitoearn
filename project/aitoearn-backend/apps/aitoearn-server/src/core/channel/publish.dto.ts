@@ -1,5 +1,5 @@
 import { AccountType, createZodDto } from '@yikart/common'
-import { PublishStatus, PublishType } from '@yikart/mongodb'
+import { PublishStatus, PublishType, ScheduleRuleFrequency, ScheduleRuleStatus } from '@yikart/mongodb'
 import { z } from 'zod'
 import { PublishingChannel } from './channel.interfaces'
 
@@ -43,6 +43,53 @@ export const UpdatePublishRecordTimeSchema = z.object({
     .describe('新的发布时间，日期为UTC时间'),
 })
 export class UpdatePublishRecordTimeDto extends createZodDto(UpdatePublishRecordTimeSchema) {}
+
+export const BatchUpdatePublishRecordTimeSchema = z.object({
+  updates: z.array(z.object({
+    id: z.string(),
+    publishTime: z.coerce.date(),
+  })).min(1),
+})
+export class BatchUpdatePublishRecordTimeDto extends createZodDto(BatchUpdatePublishRecordTimeSchema) {}
+
+export const ScheduleBatchModeSchema = z.enum(['viral_slots', 'interval'])
+
+export const CreateScheduleBatchSchema = z.object({
+  mode: ScheduleBatchModeSchema,
+  itemIds: z.array(z.string()).min(1),
+  accountId: z.string(),
+  accountType: z.enum(AccountType),
+  startAt: z.coerce.date(),
+  slots: z.array(z.string().regex(/^\d{2}:\d{2}$/)).optional(),
+  intervalHours: z.number().int().positive().optional(),
+  timezone: z.string().default('Asia/Jakarta'),
+})
+export class CreateScheduleBatchDto extends createZodDto(CreateScheduleBatchSchema) {}
+
+export const CreateScheduleRuleSchema = z.object({
+  materialId: z.string(),
+  accountId: z.string(),
+  accountType: z.enum(AccountType),
+  frequency: z.nativeEnum(ScheduleRuleFrequency),
+  weekdays: z.array(z.number().int().min(0).max(6)).optional(),
+  timeOfDay: z.string().regex(/^\d{2}:\d{2}$/),
+  timezone: z.string().default('Asia/Jakarta'),
+})
+export class CreateScheduleRuleDto extends createZodDto(CreateScheduleRuleSchema) {}
+
+export const UpdateScheduleRuleSchema = z.object({
+  status: z.nativeEnum(ScheduleRuleStatus).optional(),
+  frequency: z.nativeEnum(ScheduleRuleFrequency).optional(),
+  weekdays: z.array(z.number().int().min(0).max(6)).optional(),
+  timeOfDay: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  timezone: z.string().optional(),
+})
+export class UpdateScheduleRuleDto extends createZodDto(UpdateScheduleRuleSchema) {}
+
+export const QueueOverviewQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(500).optional().default(200),
+})
+export class QueueOverviewQueryDto extends createZodDto(QueueOverviewQuerySchema) {}
 
 export const createPublishRecordSchema = z.object({
   flowId: z.string().optional(),

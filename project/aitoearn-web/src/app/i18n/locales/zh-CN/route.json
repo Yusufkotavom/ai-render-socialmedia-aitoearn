@@ -23,5 +23,6 @@
   "taskSquare": "淘金广场",
   "myTasks": "我的任务",
   "createTask": "创建任务",
-  "contentManager": "Content Manager"
+  "contentManager": "Content Manager",
+  "contentScheduler": "Content Scheduler"
 }

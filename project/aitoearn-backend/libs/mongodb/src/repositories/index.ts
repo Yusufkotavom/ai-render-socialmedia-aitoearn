@@ -17,6 +17,7 @@ import { NotificationRepository } from './notification.repository'
 import { PointsRecordRepository } from './points-record.repository'
 import { PublishRecordRepository } from './publish-record.repository'
 import { QrCodeArtImageRepository } from './qr-code-art-image.repository'
+import { ScheduleRuleRepository } from './schedule-rule.repository'
 import { UserNotificationControlRepository } from './user-notification-control.repository'
 import { UserRepository } from './user.repository'
 
@@ -41,6 +42,7 @@ export * from './oauth2-credential.repository'
 export * from './points-record.repository'
 export * from './publish-record.repository'
 export * from './qr-code-art-image.repository'
+export * from './schedule-rule.repository'
 export * from './user-notification-control.repository'
 export * from './user.repository'
 
@@ -63,6 +65,7 @@ export const repositories = [
   MaterialRepository,
   MaterialTaskRepository,
   PublishRecordRepository,
+  ScheduleRuleRepository,
   ContentGenerationTaskRepository,
   UserNotificationControlRepository,
   QrCodeArtImageRepository,

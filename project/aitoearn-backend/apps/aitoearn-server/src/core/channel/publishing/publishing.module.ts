@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { AccountType } from '@yikart/common'
+import { ContentModule } from '../../content/content.module'
 import { ShortLinkModule } from '../../short-link/short-link.module'
 import { BilibiliModule } from '../platforms/bilibili/bilibili.module'
 import { ChannelSharedModule } from '../platforms/channel-shared.module'
@@ -32,11 +33,14 @@ import { TwitterPubService } from './providers/twitter.service'
 import { WxGzhPubService } from './providers/wx-gzh.service'
 import { YoutubePubService } from './providers/youtube.service'
 import { PublishingService } from './publishing.service'
+import { ScheduleRuleService } from './schedule-rule.service'
 import { EnqueuePublishingTaskScheduler } from './scheduler/enqueue-publishing-task.scheduler'
+import { ProcessScheduleRuleScheduler } from './scheduler/process-schedule-rule.scheduler'
 
 @Module({
   imports: [
     ChannelSharedModule,
+    ContentModule,
     ShortLinkModule,
     BilibiliModule,
     PinterestModule,
@@ -72,6 +76,8 @@ import { EnqueuePublishingTaskScheduler } from './scheduler/enqueue-publishing-t
     DouyinPubService,
     GoogleBusinessPubService,
     EnqueuePublishingTaskScheduler,
+    ScheduleRuleService,
+    ProcessScheduleRuleScheduler,
     {
       provide: 'PUBLISHING_PROVIDERS',
       useFactory: (
@@ -118,6 +124,6 @@ import { EnqueuePublishingTaskScheduler } from './scheduler/enqueue-publishing-t
     },
   ],
   controllers: [],
-  exports: [PublishingService, DouyinPubService],
+  exports: [PublishingService, DouyinPubService, ScheduleRuleService],
 })
 export class PublishModule {}

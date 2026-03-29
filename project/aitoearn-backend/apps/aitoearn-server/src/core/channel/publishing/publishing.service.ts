@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { QueueService } from '@yikart/aitoearn-queue'
 import { AccountType, PublishStatus } from '@yikart/aitoearn-server-client'
-import { AppException, ResponseCode } from '@yikart/common'
+import { AppException, FileUtil, ResponseCode } from '@yikart/common'
 import { PublishRecord, PublishType } from '@yikart/mongodb'
 import { youtube_v3 } from 'googleapis'
 import { v4 as uuidv4 } from 'uuid'
@@ -43,6 +43,101 @@ export class PublishingService {
     private readonly publishingProviders: Record<AccountType, PublishService>,
     private readonly publishRecordService: PublishRecordService,
   ) { }
+
+  /**
+   * Normalize media paths to absolute URLs so platform validators (e.g. YouTube) receive valid URL format.
+   * Material pipeline often stores object paths instead of full URLs.
+   */
+  private normalizePublishMediaUrls(publishData: CreatePublishDto): CreatePublishDto {
+    return {
+      ...publishData,
+      videoUrl: publishData.videoUrl ? FileUtil.buildUrl(publishData.videoUrl) : publishData.videoUrl,
+      coverUrl: publishData.coverUrl ? FileUtil.buildUrl(publishData.coverUrl) : publishData.coverUrl,
+      imgUrlList: publishData.imgUrlList?.map(url => FileUtil.buildUrl(url)),
+    }
+  }
+
+  private getPlatformOptionKey(accountType: AccountType): string | null {
+    switch (accountType) {
+      case AccountType.YOUTUBE:
+        return 'youtube'
+      case AccountType.FACEBOOK:
+        return 'facebook'
+      case AccountType.INSTAGRAM:
+        return 'instagram'
+      case AccountType.THREADS:
+        return 'threads'
+      case AccountType.PINTEREST:
+        return 'pinterest'
+      case AccountType.TIKTOK:
+        return 'tiktok'
+      case AccountType.BILIBILI:
+        return 'bilibili'
+      case AccountType.WxGzh:
+        return 'wxGzh'
+      case AccountType.GOOGLE_BUSINESS:
+        return 'googleBusiness'
+      default:
+        return null
+    }
+  }
+
+  /**
+   * Keep only option branch for target platform and apply sensible defaults.
+   * This aligns scheduler-created tasks with single publish payload conventions.
+   */
+  private normalizePlatformOption(publishData: CreatePublishDto): CreatePublishDto {
+    const key = this.getPlatformOptionKey(publishData.accountType as AccountType)
+    if (!key) {
+      return publishData
+    }
+
+    const rawOption = publishData.option && typeof publishData.option === 'object'
+      ? publishData.option as Record<string, any>
+      : {}
+    const scopedOption: Record<string, any> = {}
+    const platformOption = rawOption[key]
+    if (platformOption && typeof platformOption === 'object') {
+      scopedOption[key] = platformOption
+    }
+
+    if (key === 'youtube') {
+      scopedOption['youtube'] = {
+        privacyStatus: 'public',
+        categoryId: '22',
+        notifySubscribers: false,
+        embeddable: false,
+        selfDeclaredMadeForKids: false,
+        ...(scopedOption['youtube'] || {}),
+      }
+    }
+
+    if (key === 'facebook') {
+      scopedOption['facebook'] = {
+        content_category: 'post',
+        ...(scopedOption['facebook'] || {}),
+      }
+    }
+
+    if (key === 'instagram') {
+      scopedOption['instagram'] = {
+        content_category: publishData.videoUrl ? 'reel' : 'post',
+        ...(scopedOption['instagram'] || {}),
+      }
+    }
+
+    if (key === 'tiktok') {
+      scopedOption['tiktok'] = {
+        privacy_level: 'PUBLIC_TO_EVERYONE',
+        ...(scopedOption['tiktok'] || {}),
+      }
+    }
+
+    return {
+      ...publishData,
+      option: Object.keys(scopedOption).length > 0 ? scopedOption : undefined,
+    }
+  }
 
   /**
    * 确定 Meta 平台（Facebook/Instagram）的发布类型
@@ -88,6 +183,9 @@ export class PublishingService {
    * 4. 抖音平台立即发布，其他平台根据发布时间决定是否入队
    */
   async createPublishingTask(publishData: CreatePublishDto) {
+    publishData = this.normalizePublishMediaUrls(publishData)
+    publishData = this.normalizePlatformOption(publishData)
+
     // 发布参数验证
     const validateResult = await this.publishingProviders[publishData.accountType].validatePublishParams(publishData)
     if (!validateResult.success) {

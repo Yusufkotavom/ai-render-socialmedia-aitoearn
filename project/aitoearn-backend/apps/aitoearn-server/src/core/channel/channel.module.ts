@@ -1,6 +1,7 @@
 import { HttpModule } from '@nestjs/axios'
 import { Global, Module } from '@nestjs/common'
 import { AccountModule } from '../account/account.module'
+import { ContentModule } from '../content/content.module'
 import { PublishModule } from '../publish-record/publish-record.module'
 import { ChannelController } from './channel.controller'
 import { ChannelService } from './channel.service'
@@ -25,6 +26,7 @@ import { PublishModule as PublishingModule } from './publishing/publishing.modul
     DataCubeModule,
     EngagementModule,
     PublishModule,
+    ContentModule,
     AccountModule,
     ChannelInternalModule,
   ],

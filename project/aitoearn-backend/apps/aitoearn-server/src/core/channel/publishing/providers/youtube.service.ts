@@ -27,9 +27,9 @@ const youtubePublishSchema = z.object({
     .url('Video URL must be a valid URL'),
   option: z.object({
     youtube: z.object({
-      categoryId: z.string().min(1, 'Category is required'),
-    }).passthrough(),
-  }).passthrough(),
+      categoryId: z.string().min(1, 'Category is required').optional(),
+    }).passthrough().optional(),
+  }).passthrough().optional(),
 }).passthrough()
 
 @Injectable()

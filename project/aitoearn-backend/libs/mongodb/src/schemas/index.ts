@@ -31,6 +31,7 @@ import { PublishInfo, PublishInfoSchema } from './publish-info.schema'
 import { PublishRecord, PublishRecordSchema } from './publish-record.schema'
 import { QrCodeArtImage, QrCodeArtImageSchema } from './qr-code-art-image.schema'
 import { ReplyCommentRecord, ReplyCommentRecordSchema } from './reply-comment-record.schema'
+import { ScheduleRule, ScheduleRuleSchema } from './schedule-rule.schema'
 import {
   UserNotificationControl,
   UserNotificationControlSchema,
@@ -66,6 +67,7 @@ export * from './publish-record.schema'
 export * from './publishing-task-meta.schema'
 export * from './qr-code-art-image.schema'
 export * from './reply-comment-record.schema'
+export * from './schedule-rule.schema'
 export * from './timestamp.schema'
 export * from './user-notification-control.schema'
 export * from './user.schema'
@@ -94,6 +96,7 @@ export const schemas = [
   { name: UserNotificationControl.name, schema: UserNotificationControlSchema },
   { name: Asset.name, schema: AssetSchema },
   { name: QrCodeArtImage.name, schema: QrCodeArtImageSchema },
+  { name: ScheduleRule.name, schema: ScheduleRuleSchema },
   { name: EngagementTask.name, schema: EngagementTaskSchema },
   { name: EngagementSubTask.name, schema: EngagementSubTaskSchema },
   { name: InteractionRecord.name, schema: InteractionRecordSchema },

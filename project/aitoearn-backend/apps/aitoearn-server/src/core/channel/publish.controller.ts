@@ -16,10 +16,15 @@ import { RelayClientService } from '../relay/relay-client.service'
 import { ChannelAccountService } from './platforms/channel-account.service'
 import { PostHistoryItemVo, PublishRecordItemVo } from './publish-response.vo'
 import {
+  BatchUpdatePublishRecordTimeDto,
+  CreateScheduleBatchDto,
+  CreateScheduleRuleDto,
   CreatePublishDto,
   CreatePublishRecordDto,
   PublishDayInfoListFiltersDto,
   PubRecordListFilterDto,
+  QueueOverviewQueryDto,
+  UpdateScheduleRuleDto,
   UpdatePublishRecordTimeDto,
   UpdatePublishTaskDto,
 } from './publish.dto'
@@ -150,6 +155,88 @@ export class PublishController {
     @Body() data: UpdatePublishRecordTimeDto,
   ) {
     return this.publishingService.updatePublishTaskTime(data.id, data.publishTime, token.id)
+  }
+
+  @ApiDoc({
+    summary: '批量更新发布时间',
+    body: BatchUpdatePublishRecordTimeDto.schema,
+  })
+  @Post('updateTaskTime/batch')
+  async batchUpdatePublishRecordTime(
+    @GetToken() token: TokenInfo,
+    @Body() data: BatchUpdatePublishRecordTimeDto,
+  ) {
+    return this.publishService.batchUpdatePublishTaskTime(token.id, data.updates)
+  }
+
+  @ApiDoc({
+    summary: '批量创建发布调度任务（爆款时段/间隔）',
+    body: CreateScheduleBatchDto.schema,
+  })
+  @Post('schedule/batch')
+  async createScheduleBatch(
+    @GetToken() token: TokenInfo,
+    @Body() data: CreateScheduleBatchDto,
+  ) {
+    return this.publishService.createScheduleBatch(token.id, data)
+  }
+
+  @ApiDoc({
+    summary: '创建循环发布规则',
+    body: CreateScheduleRuleDto.schema,
+  })
+  @Post('schedule/rules')
+  async createScheduleRule(
+    @GetToken() token: TokenInfo,
+    @Body() data: CreateScheduleRuleDto,
+  ) {
+    return this.publishService.createScheduleRule(token.id, data)
+  }
+
+  @ApiDoc({
+    summary: '查询循环发布规则',
+  })
+  @Get('schedule/rules')
+  async listScheduleRules(
+    @GetToken() token: TokenInfo,
+  ) {
+    return this.publishService.listScheduleRules(token.id)
+  }
+
+  @ApiDoc({
+    summary: '更新循环发布规则',
+    body: UpdateScheduleRuleDto.schema,
+  })
+  @Post('schedule/rules/:id')
+  async updateScheduleRule(
+    @GetToken() token: TokenInfo,
+    @Param('id') id: string,
+    @Body() data: UpdateScheduleRuleDto,
+  ) {
+    return this.publishService.updateScheduleRule(id, token.id, data)
+  }
+
+  @ApiDoc({
+    summary: '删除循环发布规则',
+  })
+  @Delete('schedule/rules/:id')
+  async deleteScheduleRule(
+    @GetToken() token: TokenInfo,
+    @Param('id') id: string,
+  ) {
+    return this.publishService.deleteScheduleRule(id, token.id)
+  }
+
+  @ApiDoc({
+    summary: '调度队列概览',
+    query: QueueOverviewQueryDto.schema,
+  })
+  @Get('queue/overview')
+  async queueOverview(
+    @GetToken() token: TokenInfo,
+    @Query() query: QueueOverviewQueryDto,
+  ) {
+    return this.publishService.queueOverview(token.id, query.limit)
   }
 
   @ApiDoc({

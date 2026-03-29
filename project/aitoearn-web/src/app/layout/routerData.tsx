@@ -4,6 +4,7 @@
  */
 import {
   Bot,
+  CalendarClock,
   LayoutPanelTop,
   HardDrive,
   History,
@@ -68,5 +69,11 @@ export const routerData: IRouterDataItem[] = [
     translationKey: 'contentManager',
     path: '/new-page-content',
     icon: <LayoutPanelTop size={20} />,
+  },
+  {
+    name: 'Content Scheduler',
+    translationKey: 'contentScheduler',
+    path: '/content-scheduler',
+    icon: <CalendarClock size={20} />,
   },
 ]

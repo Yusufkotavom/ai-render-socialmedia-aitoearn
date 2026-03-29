@@ -38,6 +38,7 @@ export class RelayClientService {
 
   async uploadFileFromLocalUrl(localUrl: string): Promise<string> {
     const filename = basename(new URL(localUrl).pathname)
+    this.logger.log(`Relay media upload started: ${filename}`)
 
     const fileResponse = await axios.get(localUrl, { responseType: 'arraybuffer' })
     const contentType = fileResponse.headers['content-type'] || 'application/octet-stream'
@@ -58,8 +59,9 @@ export class RelayClientService {
     })
 
     await this.post(`/assets/${signResult.id}/confirm`, {})
+    this.logger.log(`Relay media upload finished: ${filename}`)
 
-    return signResult.url
+    return signResult.path || signResult.url
   }
 
   private async request<T>(options: AxiosRequestConfig): Promise<T> {
