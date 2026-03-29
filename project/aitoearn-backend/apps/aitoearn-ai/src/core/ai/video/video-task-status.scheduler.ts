@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import { WithLoggerContext } from '@yikart/common'
-import { AiLog, AiLogChannel, AiLogRepository, AiLogType } from '@yikart/mongodb'
+import { AiLog, AiLogChannel, AiLogRepository, AiLogStatus, AiLogType } from '@yikart/mongodb'
 import { Redlock } from '@yikart/redlock'
 import { RedlockKey } from '../../../common'
+import { GoogleFlowBrowserService } from '../libs/google-flow-browser'
 import { AicsoLibService } from '../libs/aicso'
 import { GeminiService } from '../libs/gemini'
 import { GrokLibService, GrokVideoTaskStatus } from '../libs/grok'
@@ -33,6 +34,7 @@ export class VideoTaskStatusScheduler {
     private readonly aicsoVeoVideoService: AicsoVeoVideoService,
     private readonly aicsoLibService: AicsoLibService,
     private readonly aicsoGrokVideoService: AicsoGrokVideoService,
+    private readonly googleFlowBrowserService: GoogleFlowBrowserService,
   ) { }
 
   /**
@@ -107,6 +109,39 @@ export class VideoTaskStatusScheduler {
     else if (channel === AiLogChannel.AicsoGrok) {
       const result = await this.aicsoLibService.getVideoStatus(taskId)
       await this.aicsoGrokVideoService.callback(result)
+    }
+    else if (channel === AiLogChannel.GoogleFlowBrowser) {
+      const providerTaskId = task.taskId || (task.response?.['providerTaskId'] as string | undefined)
+      if (!providerTaskId) {
+        this.logger.warn(`Task ${task.id} has no providerTaskId for Google Flow, skip checking`)
+        return
+      }
+      const result = await this.googleFlowBrowserService.getTaskStatus(providerTaskId)
+      if (result.status === 'succeeded' && result.outputUrl) {
+        await this.aiLogRepo.updateById(task.id, {
+          status: AiLogStatus.Success,
+          duration: Date.now() - task.startedAt.getTime(),
+          response: {
+            ...(task.response || {}),
+            providerTaskId,
+            providerStatus: result.status,
+            videoUrl: result.outputUrl,
+          },
+        })
+      }
+      else if (result.status === 'failed') {
+        await this.aiLogRepo.updateById(task.id, {
+          status: AiLogStatus.Failed,
+          duration: Date.now() - task.startedAt.getTime(),
+          errorMessage: result.error || 'Google Flow video generation failed',
+          response: {
+            ...(task.response || {}),
+            providerTaskId,
+            providerStatus: result.status,
+            error: result.error || 'Google Flow video generation failed',
+          },
+        })
+      }
     }
     else {
       this.logger.warn(`Task ${task.id} has unknown channel: ${channel}, skip checking`)

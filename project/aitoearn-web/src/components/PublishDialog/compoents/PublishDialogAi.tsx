@@ -118,11 +118,13 @@ const pollinationsImageFallbackModels = [
   { name: 'pollinations-flux', description: 'Pollinations Flux' },
   { name: 'pollinations-gptimage', description: 'Pollinations GPT Image' },
   { name: 'pollinations-zimage', description: 'Pollinations Z-Image' },
+  { name: 'google-flow-browser-image', description: 'Google Flow (Playwright)' },
 ]
 
 const pollinationsVideoFallbackModels = [
   { name: 'pollinations-veo', description: 'Pollinations Veo', resolutions: ['720x1280'], durations: [8] },
   { name: 'pollinations-seedance', description: 'Pollinations Seedance', resolutions: ['720x1280'], durations: [8] },
+  { name: 'google-flow-browser-video', description: 'Google Flow Video (Playwright)', resolutions: ['720x1280'], durations: [8] },
 ]
 
 function mergeFallbackModels<T extends { name: string }>(models: T[], fallback: T[]) {
@@ -1740,6 +1742,11 @@ const PublishDialogAi = memo(
                         :
                         {size}
                       </div>
+                      {String(model?.name || '').startsWith('google-flow-browser-') && (
+                        <div className="mt-1 text-amber-600">
+                          Uses Google Flow via Playwright browser session on server (relay channel).
+                        </div>
+                      )}
                     </div>
                   )
                 })()}

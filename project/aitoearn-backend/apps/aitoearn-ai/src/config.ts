@@ -188,6 +188,14 @@ export const aiConfigSchema = z.object({
     secretKey: z.string().default(''),
     publishableKey: z.string().default(''),
   }),
+  googleFlowBrowser: z.object({
+    baseUrl: z.string().default(''),
+    apiKey: z.string().default(''),
+    timeoutMs: z.number().default(60000),
+    imageGeneratePath: z.string().default('/v1/image/generate'),
+    videoGeneratePath: z.string().default('/v1/video/generate'),
+    taskStatusPath: z.string().default('/v1/tasks/{taskId}'),
+  }),
   aideo: aideoPricingConfigSchema,
   gemini: geminiConfigSchema,
   anthropic: z.object({

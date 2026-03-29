@@ -42,4 +42,5 @@ export enum AiLogChannel {
   AicsoVeo = 'aicso-veo',
   AicsoGrok = 'aicso-grok',
   Pollinations = 'pollinations',
+  GoogleFlowBrowser = 'google-flow-browser',
 }

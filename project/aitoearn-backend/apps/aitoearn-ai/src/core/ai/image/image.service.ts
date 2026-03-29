@@ -11,6 +11,7 @@ import sharp from 'sharp'
 import { config } from '../../../config'
 
 import { GeminiService } from '../libs/gemini/gemini.service'
+import { GoogleFlowBrowserService } from '../libs/google-flow-browser'
 import { OpenaiService } from '../libs/openai'
 import { ModelsConfigService } from '../models-config'
 import { calculatePricingPoints, ChatPricing } from '../pricing/pricing-calculator'
@@ -73,11 +74,25 @@ const pollinationsImageFallbackConfigs = [
     styles: ['natural'],
     pricing: '0',
   },
+  {
+    name: 'google-flow-browser-image',
+    description: 'Google Flow (Playwright)',
+    summary: 'Generate image via Google Flow browser session (Playwright)',
+    logo: undefined,
+    tags: [],
+    mainTag: 'google-flow-browser',
+    sizes: ['1024x1024', '720x1280', '1280x720'],
+    qualities: ['standard'],
+    styles: ['natural'],
+    pricing: '0',
+  },
 ]
 
 @Injectable()
 export class ImageService {
   private readonly logger = new Logger(ImageService.name)
+  private readonly googleFlowImageMaxWaitMs = 2 * 60 * 1000
+  private readonly googleFlowImagePollIntervalMs = 3000
 
   constructor(
     private readonly assetsService: AssetsService,
@@ -88,6 +103,7 @@ export class ImageService {
     private readonly modelsConfigService: ModelsConfigService,
     private readonly queueService: QueueService,
     private readonly userRepo: UserRepository,
+    private readonly googleFlowBrowserService: GoogleFlowBrowserService,
   ) { }
 
   /**
@@ -154,6 +170,13 @@ export class ImageService {
 
     if (params.model in pollinationsImageModelMapping) {
       return this.pollinationsGeneration({
+        ...params,
+        user,
+      })
+    }
+
+    if (params.model === 'google-flow-browser-image') {
+      return this.googleFlowBrowserGeneration({
         ...params,
         user,
       })
@@ -233,6 +256,60 @@ export class ImageService {
       return new URL(`${trimmedBaseUrl}/${kind}/${encodedPrompt}`)
     }
     return new URL(`${trimmedBaseUrl}/prompt/${encodedPrompt}`)
+  }
+
+  private async waitForGoogleFlowImage(taskId: string): Promise<string | undefined> {
+    const deadline = Date.now() + this.googleFlowImageMaxWaitMs
+
+    while (Date.now() < deadline) {
+      const status = await this.googleFlowBrowserService.getTaskStatus(taskId)
+      if (status.status === 'succeeded') {
+        return status.outputUrl
+      }
+      if (status.status === 'failed') {
+        throw new AppException(ResponseCode.AiCallFailed, status.error || 'Google Flow image generation failed')
+      }
+      await new Promise(resolve => setTimeout(resolve, this.googleFlowImagePollIntervalMs))
+    }
+
+    throw new AppException(ResponseCode.AiCallFailed, `Google Flow image generation timeout after ${Math.round(this.googleFlowImageMaxWaitMs / 1000)}s`)
+  }
+
+  /**
+   * Google Flow browser 图片生成（通过内部 Playwright worker）
+   */
+  private async googleFlowBrowserGeneration(request: ImageGenerationDto): Promise<{ created: number, list: Array<{ url: string }> }> {
+    const [width, height] = (request.size || '1024x1024').split('x')
+    const size = `${width || '1024'}x${height || '1024'}`
+    const count = request.n || 1
+    const created = Math.floor(Date.now() / 1000)
+    const list: Array<{ url: string }> = []
+
+    for (let i = 0; i < count; i++) {
+      const result = await this.googleFlowBrowserService.createImageTask({
+        userId: request.user || '',
+        prompt: request.prompt,
+        model: request.model,
+        size,
+      })
+
+      if (result.status === 'failed') {
+        throw new AppException(ResponseCode.AiCallFailed, result.error || 'Google Flow image generation failed')
+      }
+
+      let imageUrl = result.outputUrl
+      if (!imageUrl && result.taskId) {
+        imageUrl = await this.waitForGoogleFlowImage(result.taskId)
+      }
+      if (!imageUrl) {
+        throw new AppException(ResponseCode.AiCallFailed, 'Google Flow image generation returned no image URL')
+      }
+
+      const uploaded = await this.uploadImageToS3(imageUrl, request.user || '', `ai/images/${request.model}`)
+      list.push({ url: uploaded })
+    }
+
+    return { created, list }
   }
 
   /**
@@ -447,6 +524,16 @@ export class ImageService {
     return Number(modelConfig.pricing)
   }
 
+  private resolveImageChannel(model: string): AiLogChannel {
+    if (model in pollinationsImageModelMapping) {
+      return AiLogChannel.Pollinations
+    }
+    if (model === 'google-flow-browser-image') {
+      return AiLogChannel.GoogleFlowBrowser
+    }
+    return AiLogChannel.NewApi
+  }
+
   /**
    * 统一的用户请求处理：校验余额、计费、扣费、日志
    */
@@ -519,6 +606,7 @@ export class ImageService {
       userId,
       userType,
       model: params.model,
+      channel: this.resolveImageChannel(params.model),
       type: AiLogType.Image,
       pricing,
       request: params,
@@ -581,11 +669,12 @@ export class ImageService {
     }
 
     // 创建 AiLog 记录
+    const channel = this.resolveImageChannel(params.model)
     const log = await this.aiLogRepo.create({
       userId,
       userType,
       model: params.model,
-      channel: AiLogChannel.NewApi,
+      channel,
       type: AiLogType.Image,
       points: pricing,
       request: params,
@@ -599,7 +688,7 @@ export class ImageService {
       userId,
       userType,
       model: params.model,
-      channel: AiLogChannel.NewApi,
+      channel,
       type: AiLogType.Image,
       pricing,
       request: { ...params, user: userId },

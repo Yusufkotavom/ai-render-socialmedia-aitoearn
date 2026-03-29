@@ -4,6 +4,7 @@ import { AppException, ResponseCode, UserType } from '@yikart/common'
 import { AiLog, AiLogChannel, AiLogRepository, AiLogStatus, AiLogType, UserRepository } from '@yikart/mongodb'
 import { TaskStatus } from '../../../common'
 import { config } from '../../../config'
+import { GoogleFlowBrowserService } from '../libs/google-flow-browser'
 import {
   Content,
   ContentType,
@@ -108,11 +109,38 @@ const pollinationsVideoFallbackModels: VideoGenerationModelConfig[] = [
   },
 ]
 
+const googleFlowBrowserVideoFallbackModel: VideoGenerationModelConfig = {
+  name: 'google-flow-browser-video',
+  description: 'Google Flow Video (Playwright)',
+  summary: 'Generate video via Google Flow browser session (Playwright)',
+  logo: undefined,
+  tags: [],
+  mainTag: 'google-flow-browser',
+  channel: AiLogChannel.GoogleFlowBrowser,
+  modes: ['text2video', 'image2video'],
+  resolutions: ['720x1280', '1280x720'],
+  durations: [8],
+  maxInputImages: 1,
+  aspectRatios: ['9:16', '16:9', '1:1'],
+  defaults: {
+    resolution: '720x1280',
+    aspectRatio: '9:16',
+    duration: 8,
+  },
+  pricing: [
+    {
+      duration: 8,
+      price: 0,
+    },
+  ],
+}
+
 @Injectable()
 export class VideoService {
   private readonly logger = new Logger(VideoService.name)
   private readonly pollinationsStatusProbeTimeoutMs = 5000
   private readonly pollinationsTaskMaxWaitMs = 15 * 60 * 1000
+  private readonly googleFlowTaskMaxWaitMs = 30 * 60 * 1000
 
   constructor(
     private readonly userRepo: UserRepository,
@@ -125,6 +153,7 @@ export class VideoService {
     private readonly aicsoVeoVideoService: AicsoVeoVideoService,
     private readonly aicsoGrokVideoService: AicsoGrokVideoService,
     private readonly geminiVideoService: GeminiVideoService,
+    private readonly googleFlowBrowserService: GoogleFlowBrowserService,
   ) {}
 
   /**
@@ -192,6 +221,7 @@ export class VideoService {
 
     const modelConfig = this.modelsConfigService.config.video.generation.find(m => m.name === model)
       || pollinationsVideoFallbackModels.find(m => m.name === model)
+      || (googleFlowBrowserVideoFallbackModel.name === model ? googleFlowBrowserVideoFallbackModel : undefined)
     if (!modelConfig) {
       throw new AppException(ResponseCode.InvalidModel)
     }
@@ -217,6 +247,8 @@ export class VideoService {
         return this.handleAicsoGrokGeneration(request, createTaskResponse)
       case AiLogChannel.Pollinations:
         return this.handlePollinationsGeneration(request, createTaskResponse)
+      case AiLogChannel.GoogleFlowBrowser:
+        return this.handleGoogleFlowBrowserGeneration(request, createTaskResponse)
       default:
         throw new AppException(ResponseCode.InvalidModel)
     }
@@ -275,6 +307,53 @@ export class VideoService {
       response: { videoUrl: url.toString() },
       status: AiLogStatus.Generating,
       startedAt,
+    })
+
+    return createTaskResponse(aiLog.id, points)
+  }
+
+  private async handleGoogleFlowBrowserGeneration<T>(
+    request: UserVideoGenerationRequestDto,
+    createTaskResponse: (taskId: string, points: number) => T,
+  ) {
+    const { userId, userType, model, prompt, duration } = request
+    const points = await this.calculateVideoGenerationPrice({ model, userId, userType, duration })
+    const imageUrl = Array.isArray(request.image) ? request.image[0] : request.image
+    const startedAt = new Date()
+
+    const createResult = await this.googleFlowBrowserService.createVideoTask({
+      userId,
+      model,
+      prompt,
+      duration: duration || 8,
+      size: request.size || '720x1280',
+      image: imageUrl,
+      aspectRatio: request.metadata?.['aspectRatio'] as string | undefined,
+    })
+
+    const durationMs = Math.max(1, Date.now() - startedAt.getTime())
+    const aiLog = await this.aiLogRepo.create({
+      userId,
+      userType,
+      taskId: createResult.taskId,
+      model,
+      channel: AiLogChannel.GoogleFlowBrowser,
+      type: AiLogType.Video,
+      points,
+      request: { model, prompt, image: imageUrl, size: request.size, duration },
+      response: {
+        providerTaskId: createResult.taskId,
+        providerStatus: createResult.status,
+        videoUrl: createResult.outputUrl,
+      },
+      status: createResult.status === 'failed'
+        ? AiLogStatus.Failed
+        : createResult.status === 'succeeded'
+          ? AiLogStatus.Success
+          : AiLogStatus.Generating,
+      startedAt,
+      duration: createResult.status === 'queued' || createResult.status === 'processing' ? undefined : durationMs,
+      errorMessage: createResult.status === 'failed' ? (createResult.error || 'Google Flow video generation failed') : undefined,
     })
 
     return createTaskResponse(aiLog.id, points)
@@ -356,6 +435,71 @@ export class VideoService {
         response: {
           ...(aiLog.response || {}),
           error: `Pollinations video generation timeout after ${Math.round(waitMs / 1000)}s`,
+        },
+      })
+      return updated || aiLog
+    }
+
+    return aiLog
+  }
+
+  private async refreshGoogleFlowTaskStatus(aiLog: AiLog): Promise<AiLog> {
+    if (aiLog.channel !== AiLogChannel.GoogleFlowBrowser || aiLog.status !== AiLogStatus.Generating) {
+      return aiLog
+    }
+
+    const providerTaskId = aiLog.taskId || (aiLog.response?.['providerTaskId'] as string | undefined)
+    if (!providerTaskId) {
+      return aiLog
+    }
+
+    try {
+      const result = await this.googleFlowBrowserService.getTaskStatus(providerTaskId)
+      if (result.status === 'succeeded' && result.outputUrl) {
+        const duration = Math.max(1, Date.now() - aiLog.startedAt.getTime())
+        const updated = await this.aiLogRepo.updateById(aiLog.id, {
+          status: AiLogStatus.Success,
+          duration,
+          response: {
+            ...(aiLog.response || {}),
+            providerTaskId,
+            providerStatus: result.status,
+            videoUrl: result.outputUrl,
+          },
+        })
+        return updated || aiLog
+      }
+      if (result.status === 'failed') {
+        const duration = Math.max(1, Date.now() - aiLog.startedAt.getTime())
+        const updated = await this.aiLogRepo.updateById(aiLog.id, {
+          status: AiLogStatus.Failed,
+          duration,
+          errorMessage: result.error || 'Google Flow video generation failed',
+          response: {
+            ...(aiLog.response || {}),
+            providerTaskId,
+            providerStatus: result.status,
+            error: result.error || 'Google Flow video generation failed',
+          },
+        })
+        return updated || aiLog
+      }
+    }
+    catch (error) {
+      this.logger.debug({ taskId: aiLog.id, error }, 'Google Flow task status probe failed, keep task in generating state')
+    }
+
+    const waitMs = Date.now() - aiLog.startedAt.getTime()
+    if (waitMs >= this.googleFlowTaskMaxWaitMs) {
+      const duration = Math.max(1, waitMs)
+      const updated = await this.aiLogRepo.updateById(aiLog.id, {
+        status: AiLogStatus.Failed,
+        duration,
+        errorMessage: `Google Flow video generation timeout after ${Math.round(waitMs / 1000)}s`,
+        response: {
+          ...(aiLog.response || {}),
+          providerTaskId,
+          error: `Google Flow video generation timeout after ${Math.round(waitMs / 1000)}s`,
         },
       })
       return updated || aiLog
@@ -571,6 +715,12 @@ export class VideoService {
           image: request['image'] as string | undefined,
           duration: request['duration'] as number | undefined,
         }
+      case AiLogChannel.GoogleFlowBrowser:
+        return {
+          prompt: (request['prompt'] as string) || '',
+          image: request['image'] as string | undefined,
+          duration: request['duration'] as number | undefined,
+        }
       default:
         return { prompt: '' }
     }
@@ -643,6 +793,21 @@ export class VideoService {
           videoUrl: aiLog.response?.['videoUrl'] as string | undefined,
           error: undefined,
         }
+      case AiLogChannel.GoogleFlowBrowser:
+        if (aiLog.status === AiLogStatus.Failed) {
+          return {
+            status: TaskStatus.Failure,
+            videoUrl: undefined,
+            error: {
+              message: (aiLog.response?.['error'] as string) || aiLog.errorMessage || 'Google Flow video generation failed',
+            },
+          }
+        }
+        return {
+          status: TaskStatus.Success,
+          videoUrl: aiLog.response?.['videoUrl'] as string | undefined,
+          error: undefined,
+        }
       default:
         throw new AppException(ResponseCode.InvalidAiTaskId)
     }
@@ -661,7 +826,8 @@ export class VideoService {
     }
 
     const refreshedLog = await this.refreshPollinationsTaskStatus(aiLog)
-    return this.transformToCommonResponse(refreshedLog)
+    const finalLog = await this.refreshGoogleFlowTaskStatus(refreshedLog)
+    return this.transformToCommonResponse(finalLog)
   }
 
   async listVideoTasks(request: UserListVideoTasksQueryDto) {
@@ -679,7 +845,10 @@ export class VideoService {
   async getVideoGenerationModelParams(_data: VideoGenerationModelsQueryDto) {
     const existing = this.modelsConfigService.config.video.generation as VideoGenerationModelConfig[]
     const existingNames = new Set(existing.map(model => model.name))
-    const fallback = pollinationsVideoFallbackModels.filter(model => !existingNames.has(model.name))
+    const fallback = [
+      ...pollinationsVideoFallbackModels.filter(model => !existingNames.has(model.name)),
+      ...(existingNames.has(googleFlowBrowserVideoFallbackModel.name) ? [] : [googleFlowBrowserVideoFallbackModel]),
+    ]
     return [...existing, ...fallback].map(model => ({
       ...model,
       tags: [...(model.tags || [])],

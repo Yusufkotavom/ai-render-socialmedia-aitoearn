@@ -34,6 +34,12 @@ const {
   POLLINATIONS_APP_URL,
   POLLINATIONS_SECRET_KEY,
   POLLINATIONS_PUBLISHABLE_KEY,
+  GOOGLE_FLOW_BROWSER_BASE_URL,
+  GOOGLE_FLOW_BROWSER_API_KEY,
+  GOOGLE_FLOW_BROWSER_TIMEOUT_MS,
+  GOOGLE_FLOW_BROWSER_IMAGE_PATH,
+  GOOGLE_FLOW_BROWSER_VIDEO_PATH,
+  GOOGLE_FLOW_BROWSER_TASK_STATUS_PATH,
 } = process.env
 
 const {
@@ -169,6 +175,14 @@ module.exports = {
       appUrl: POLLINATIONS_APP_URL || 'https://api.piiblog.net',
       secretKey: POLLINATIONS_SECRET_KEY || '',
       publishableKey: POLLINATIONS_PUBLISHABLE_KEY || '',
+    },
+    googleFlowBrowser: {
+      baseUrl: GOOGLE_FLOW_BROWSER_BASE_URL || '',
+      apiKey: GOOGLE_FLOW_BROWSER_API_KEY || '',
+      timeoutMs: Number(GOOGLE_FLOW_BROWSER_TIMEOUT_MS || 60000),
+      imageGeneratePath: GOOGLE_FLOW_BROWSER_IMAGE_PATH || '/v1/image/generate',
+      videoGeneratePath: GOOGLE_FLOW_BROWSER_VIDEO_PATH || '/v1/video/generate',
+      taskStatusPath: GOOGLE_FLOW_BROWSER_TASK_STATUS_PATH || '/v1/tasks/{taskId}',
     },
     aideo: {
       vCreative: {
@@ -420,6 +434,14 @@ module.exports = {
             styles: [],
             pricing: '0',
           },
+          {
+            name: 'google-flow-browser-image',
+            description: 'Google Flow (Playwright)',
+            sizes: ['1024x1024', '1280x720', '720x1280'],
+            qualities: ['standard'],
+            styles: [],
+            pricing: '0',
+          },
         ],
         edit: [
           {
@@ -555,6 +577,22 @@ module.exports = {
             defaults: {
               duration: 8,
               aspectRatio: '9:16',
+            },
+            pricing: [{ duration: 8, price: 0 }],
+          },
+          {
+            name: 'google-flow-browser-video',
+            description: 'Google Flow Video (Playwright)',
+            channel: 'google-flow-browser',
+            modes: ['text2video', 'image2video'],
+            resolutions: ['720x1280', '1280x720'],
+            durations: [8],
+            maxInputImages: 1,
+            aspectRatios: ['1:1', '16:9', '9:16'],
+            defaults: {
+              duration: 8,
+              aspectRatio: '9:16',
+              resolution: '720x1280',
             },
             pricing: [{ duration: 8, price: 0 }],
           },
