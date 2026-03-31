@@ -46,3 +46,7 @@ public/bin/*
 
 sh/*
 project/web/.cursor/
+/project/aitoearn-backend/apps/google-flow-playwright-worker/profile
+/debug-snapshots
+.env
+.env.example
