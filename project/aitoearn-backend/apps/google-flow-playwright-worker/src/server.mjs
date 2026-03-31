@@ -84,7 +84,7 @@ const SELECTOR_SUBMIT = (process.env.GOOGLE_FLOW_SELECTOR_SUBMIT || [
   "[role=\"button\"][aria-label*=\"Generate\" i]",
   "[role=\"button\"][aria-label*=\"Send\" i]",
 ].join(",")).split(",").map(s => s.trim()).filter(Boolean)
-const SELECTOR_IMAGE_OUTPUT = (process.env.GOOGLE_FLOW_SELECTOR_IMAGE_OUTPUT || "img[src^=\"https://\"],img[src^=\"blob:\"],img[src^=\"data:image/\"],source[srcset],a[href^=\"blob:\"],a[href^=\"data:image/\"]").split(",").map(s => s.trim()).filter(Boolean)
+const SELECTOR_IMAGE_OUTPUT = (process.env.GOOGLE_FLOW_SELECTOR_IMAGE_OUTPUT || "img[src*=\"getMediaUrlRedirect\"],img[src^=\"/fx/api/\"],img[src^=\"https://\"],img[src^=\"blob:\"],img[src^=\"data:image/\"],source[srcset],a[href^=\"blob:\"],a[href^=\"data:image/\"]").split(",").map(s => s.trim()).filter(Boolean)
 const SELECTOR_VIDEO_OUTPUT = (process.env.GOOGLE_FLOW_SELECTOR_VIDEO_OUTPUT || "video[src],video source[src],a[href$=\".mp4\"]").split(",").map(s => s.trim()).filter(Boolean)
 const SELECTOR_LOGIN_MARKER = (process.env.GOOGLE_FLOW_SELECTOR_LOGIN_MARKER || "input[type=\"email\"],button:has-text(\"Sign in\"),a:has-text(\"Sign in\")").split(",").map(s => s.trim()).filter(Boolean)
 const SELECTOR_LOGIN_EMAIL = (process.env.GOOGLE_FLOW_SELECTOR_LOGIN_EMAIL || "input[type=\"email\"],input[name=\"identifier\"],input[autocomplete=\"username\"],input[type=\"text\"][autocomplete=\"username\"],input[type=\"text\"][name=\"identifier\"],input[type=\"text\"][aria-label*=\"Email\" i],input[type=\"text\"][aria-label*=\"phone\" i]").split(",").map(s => s.trim()).filter(Boolean)
@@ -951,6 +951,29 @@ async function extractMediaUrl(page, selectors, kind) {
   return best
 }
 
+// Returns ALL unique getMediaUrlRedirect image URLs found on page (for multi-image generation)
+async function extractAllMediaUrls(page) {
+  const urls = await page.evaluate((flowUrl) => {
+    const seen = new Set()
+    const results = []
+    const imgs = Array.from(document.querySelectorAll('img[src*="getMediaUrlRedirect"],img[src^="/fx/api/"]'))
+    for (const img of imgs) {
+      const rect = img.getBoundingClientRect()
+      if (rect.width < 120 || rect.height < 80) continue
+      const src = img.getAttribute('src') || ''
+      if (!src) continue
+      const full = src.startsWith('/') ? new URL(src, flowUrl).toString() : src
+      if (!seen.has(full)) {
+        seen.add(full)
+        results.push({ url: full, area: rect.width * rect.height })
+      }
+    }
+    results.sort((a, b) => b.area - a.area)
+    return results.map(r => r.url)
+  }, FLOW_URL).catch(() => [])
+  return urls
+}
+
 async function clickRoleByName(page, role, names) {
   for (const name of names) {
     const locator = page.getByRole(role, { name, exact: false }).first()
@@ -1302,116 +1325,253 @@ async function isFlowModelSelected(page, keywords) {
 }
 
 async function openFlowModelPicker(page) {
-  return await page.evaluate(() => {
-    const isVisible = (el) => {
-      const rect = el.getBoundingClientRect()
-      const style = window.getComputedStyle(el)
-      if (!rect.width || !rect.height) {
-        return false
-      }
-      if (style.visibility === "hidden" || style.display === "none") {
-        return false
-      }
-      return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth
+  // Use Playwright locator API — more reliable than page.evaluate + getBoundingClientRect.
+  // The pill button has aria-haspopup="menu" and contains BOTH model text (banana/imagen)
+  // AND count text (x1/x2/x3/x4). It's in the prompt bar at the bottom of the page.
+  try {
+    // Primary: button[aria-haspopup="menu"] that contains "banana" or "imagen" AND "x1/x2/x3/x4"
+    const loc = page.locator('button[aria-haspopup="menu"]').filter({ hasText: /(\bbanana\b|\bimagen\b)/i }).filter({ hasText: /x[0-9]/ })
+    const cnt = await loc.count()
+    console.log(`[picker] found pill candidates: ${cnt}`)
+    if (cnt > 0) {
+      await loc.first().click({ timeout: 3000 })
+      return true
     }
-    const nodes = Array.from(document.querySelectorAll("button,[role=\"button\"],div[role=\"button\"]"))
-      .filter(isVisible)
-      .filter((el) => {
-        const rect = el.getBoundingClientRect()
-        if (rect.top < window.innerHeight * 0.55) {
-          return false
-        }
-        const text = `${el.textContent || ""} ${el.getAttribute("aria-label") || ""} ${el.getAttribute("title") || ""}`.toLowerCase()
-        return text.includes("banana") || text.includes("imagen")
-      })
-    if (!nodes.length) {
-      return false
+    // Fallback: any visible button in the page with banana/imagen + count
+    const fb = page.locator('button').filter({ hasText: /(\bbanana\b|\bimagen\b)/i }).filter({ hasText: /x[0-9]/ })
+    const fbCnt = await fb.count()
+    console.log(`[picker] fallback candidates: ${fbCnt}`)
+    if (fbCnt > 0) {
+      await fb.first().click({ timeout: 3000 })
+      return true
     }
-    nodes.sort((a, b) => b.getBoundingClientRect().left - a.getBoundingClientRect().left)
-    nodes[0].click()
-    return true
-  }).catch(() => false)
+    return false
+  } catch (err) {
+    console.log(`[picker] error: ${err?.message}`)
+    return false
+  }
 }
+
 
 async function clickFlowModelOption(page, keywords) {
-  return await page.evaluate((keys) => {
+  // From codegen: model options are role="button" (NOT menuitem/option!)
+  // Names: "🍌 Nano Banana 2", "🍌 Nano Banana Pro", "Imagen"
+  // They are plain buttons WITHOUT aria-haspopup
+  try {
+    for (const keyword of keywords) {
+      // Use role=button with hasText, exclude elements with aria-haspopup (those are sub-triggers)
+      const loc = page.locator('button:not([aria-haspopup])')
+        .filter({ hasText: new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
+      const cnt = await loc.count()
+      console.log(`[model-opt] keyword="${keyword}" candidates=${cnt}`)
+      if (cnt > 0) {
+        await loc.first().click({ timeout: 3000 })
+        return true
+      }
+    }
+    return false
+  } catch (err) {
+    console.log(`[model-opt] error: ${err?.message}`)
+    return false
+  }
+}
+
+
+// Click a tab inside the currently open dropdown by exact visible text.
+// Uses DOM evaluate to avoid Playwright accessible-name matching false positives
+// (e.g. img[alt="User profile image"] matching the text "image").
+async function clickTabInDropdown(page, texts) {
+  return await page.evaluate((candidates) => {
     const isVisible = (el) => {
       const rect = el.getBoundingClientRect()
       const style = window.getComputedStyle(el)
-      if (!rect.width || !rect.height) {
-        return false
-      }
-      if (style.visibility === "hidden" || style.display === "none") {
-        return false
-      }
+      if (!rect.width || !rect.height) return false
+      if (style.visibility === "hidden" || style.display === "none") return false
       return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth
     }
-    const nodes = Array.from(document.querySelectorAll("button,[role=\"button\"],[role=\"option\"],[role=\"menuitem\"],li"))
-      .filter(isVisible)
-    const ranked = nodes
-      .map((el) => {
-        const text = `${el.textContent || ""} ${el.getAttribute("aria-label") || ""} ${el.getAttribute("title") || ""}`.toLowerCase()
-        let score = 0
-        for (const key of keys) {
-          if (!key) {
-            continue
-          }
-          if (text.includes(key)) {
-            score = Math.max(score, key.length)
-          }
-        }
-        return { el, score }
-      })
-      .filter(item => item.score > 0)
-    if (!ranked.length) {
-      return false
+    // Search inside the open dropdown popper first, then fall back to whole page
+    const dropdownEl = document.querySelector("[data-radix-popper-content-wrapper] [role=\"menu\"]")
+    const searchRoot = dropdownEl || document
+    const tabs = Array.from(searchRoot.querySelectorAll("[role=\"tab\"],button[role=\"tab\"]")).filter(isVisible)
+    for (const candidate of candidates) {
+      const lc = candidate.toLowerCase()
+      const match = tabs.find(el => (el.textContent || "").trim().toLowerCase() === lc)
+      if (match) {
+        match.click()
+        return true
+      }
     }
-    ranked.sort((a, b) => b.score - a.score)
-    ranked[0].el.click()
-    return true
-  }, keywords).catch(() => false)
+    return false
+  }, texts).catch(() => false)
 }
 
-async function selectFlowModel(page, payload) {
-  const requested = String(payload?.flowModel || FLOW_MODEL_LABELS[String(payload?.model || "")] || "").trim()
-  if (!requested) {
-    return
+// This button shows "🍌 Nano Banana 2 ▼" (has arrow_drop_down, no x1/x2 count).
+async function clickModelSubButton(page) {
+  // From codegen: model sub-button accessible name = "🍌 Nano Banana 2 arrow_drop_down"
+  // It's the only button inside the open dropdown that:
+  //   - has aria-haspopup="menu"
+  //   - contains banana/imagen AND "arrow_drop_down"
+  //   - does NOT contain x1/x2 count text (that's the pill button)
+  try {
+    const loc = page.locator('[data-radix-popper-content-wrapper] button[aria-haspopup="menu"]')
+      .filter({ hasText: /banana|imagen/i })
+      .filter({ hasText: /arrow_drop_down/ })
+    const cnt = await loc.count()
+    console.log(`[sub-btn] candidates in popper: ${cnt}`)
+    if (cnt > 0) {
+      await loc.first().click({ timeout: 3000 })
+      return true
+    }
+    // Fallback: any button with aria-haspopup + banana/imagen (covers edge cases)
+    const fb = page.locator('button[aria-haspopup="menu"]')
+      .filter({ hasText: /banana|imagen/i })
+      .filter({ hasNot: page.locator('[data-type="button-overlay"]').locator('xpath=../..').filter({ hasText: /x[0-9]/ }) })
+    const fbCnt = await fb.count()
+    console.log(`[sub-btn] fallback candidates: ${fbCnt}`)
+    if (fbCnt > 0) {
+      // Pick one that doesn't have x1/x2 count in text
+      const all = await fb.all()
+      for (const el of all) {
+        const txt = await el.textContent()
+        if (!/x[0-9]/.test(txt || '')) {
+          await el.click({ timeout: 3000 })
+          return true
+        }
+      }
+    }
+    return false
+  } catch (err) {
+    console.log(`[sub-btn] error: ${err?.message}`)
+    return false
   }
-  const keywords = flowModelKeywords(requested)
-  if (await isFlowModelSelected(page, keywords)) {
-    return
-  }
-  await clickControlByNames(page, ["arrow_drop_down", "Nano Banana", "Imagen", requested])
-  await page.waitForTimeout(300)
-  await openFlowModelPicker(page)
-  await page.waitForTimeout(300)
-  await clickControlByNames(page, [requested])
-  await clickFlowModelOption(page, keywords)
-  await page.waitForTimeout(500)
 }
 
-async function selectFlowAspectRatio(page, payload) {
-  const ratio = String(payload?.aspectRatio || payload?.metadata?.aspectRatio || sizeToAspectRatio(payload?.size) || "").trim()
-  if (!ratio) {
-    return
-  }
-  await clickControlByNames(page, [ratio])
-  await page.waitForTimeout(300)
+// From codegen: aspect ratio tabs have accessible names like "crop_16_9 16:" or "crop_landscape 4:"
+// Map user-facing ratio strings to the icon prefix used in tab accessible names.
+const RATIO_TO_TAB_ICON = {
+  '16:9': 'crop_16_9',
+  '9:16': 'crop_9_16',
+  '4:3': 'crop_landscape',
+  '3:4': 'crop_portrait',
+  '1:1': 'crop_square',
+  // aliases
+  '16x9': 'crop_16_9',
+  '9x16': 'crop_9_16',
+  '4x3': 'crop_landscape',
+  '3x4': 'crop_portrait',
+  '1x1': 'crop_square',
 }
 
-async function selectFlowOutputCount(page, payload) {
-  const count = normalizeOutputCount(payload)
-  await clickControlByNames(page, [`x${count}`])
-  await page.waitForTimeout(300)
+async function selectFlowAspectRatio(page, ratio) {
+  if (!ratio) return
+  // From codegen: tab accessible name starts with the icon text e.g. "crop_16_9 16:"
+  // Map ratio string → icon name, then match tab by icon name (partial, not exact)
+  const icon = RATIO_TO_TAB_ICON[ratio] || ratio
+  try {
+    const loc = page.getByRole('tab', { name: icon, exact: false })
+    const cnt = await loc.count()
+    console.log(`[controls] ratio tab icon="${icon}" candidates=${cnt}`)
+    if (cnt > 0) {
+      await loc.first().click({ timeout: 3000 })
+    }
+  } catch (err) {
+    console.log(`[controls] ratio tab error: ${err?.message}`)
+  }
+  await page.waitForTimeout(250)
+}
+
+async function selectFlowOutputCount(page, count) {
+  // Only explicitly set count if > 1; skipping x1 avoids overriding the UI's x2/x4 default
+  if (count <= 1) return
+  // From codegen: count tabs have accessible names "x1", "x2", "x3", "x4"
+  try {
+    const loc = page.getByRole('tab', { name: `x${count}`, exact: true })
+    const cnt = await loc.count()
+    console.log(`[controls] count tab x${count} candidates=${cnt}`)
+    if (cnt > 0) {
+      await loc.first().click({ timeout: 3000 })
+    }
+  } catch (err) {
+    console.log(`[controls] count tab error: ${err?.message}`)
+  }
+  await page.waitForTimeout(250)
 }
 
 async function applyFlowGenerationControls(page, kind, payload) {
-  await selectFlowMode(page, kind)
-  await selectFlowModel(page, payload)
-  await selectFlowAspectRatio(page, payload)
-  if (kind === "image") {
-    await selectFlowOutputCount(page, payload)
+  const ratio = String(payload?.aspectRatio || payload?.metadata?.aspectRatio || sizeToAspectRatio(payload?.size) || "").trim()
+  const count = normalizeOutputCount(payload)
+  const requestedModel = String(payload?.flowModel || FLOW_MODEL_LABELS[String(payload?.model || "")] || "").trim()
+  const modelKeywords = requestedModel ? flowModelKeywords(requestedModel) : null
+
+  // Check if model is already selected BEFORE opening dropdown
+  const modelAlreadyOk = !modelKeywords || await isFlowModelSelected(page, modelKeywords)
+  const needsDropdown = !modelAlreadyOk || ratio || count > 1
+
+  if (!needsDropdown) {
+    // Only mode needs to be set and it's outside the dropdown
+    console.log("[controls] no dropdown changes needed")
+    return
   }
+
+  // Open the main settings dropdown (clicks the pill button)
+  const opened = await openFlowModelPicker(page)
+  console.log(`[controls] dropdown opened=${opened}`)
+  await page.waitForTimeout(400)
+
+  // Set Image/Video mode tab inside dropdown
+  // Use clickTabInDropdown (role="tab" exact match) to avoid accidentally clicking the profile button.
+  // Image is the UI default so we only force-switch for video.
+  if (kind === "video") {
+    const modeClicked = await clickTabInDropdown(page, ["Video"])
+    console.log(`[controls] mode tab clicked=${modeClicked}`)
+    await page.waitForTimeout(200)
+  }
+
+  // Set aspect ratio tab inside dropdown
+  if (ratio) {
+    console.log(`[controls] setting ratio=${ratio}`)
+    await selectFlowAspectRatio(page, ratio)
+  }
+
+  // Set count tab inside dropdown (skip x1 to avoid overriding x2 default)
+  if (kind === "image") {
+    console.log(`[controls] setting count=${count}`)
+    await selectFlowOutputCount(page, count)
+  }
+
+  // Set model (2-level: click sub-button then pick option)
+  if (modelKeywords && !modelAlreadyOk) {
+    console.log(`[controls] setting model keywords=${JSON.stringify(modelKeywords)}`)
+    const subClicked = await clickModelSubButton(page)
+    console.log(`[controls] model sub-button clicked=${subClicked}`)
+    await page.waitForTimeout(800)
+
+    // --- TEMP DEBUG: dump model sub-picker HTML to file ---
+    try {
+      const { writeFileSync } = await import('fs')
+      const debugHtml = await page.evaluate(() => {
+        const poppers = Array.from(document.querySelectorAll('[data-radix-popper-content-wrapper]'))
+        const out = poppers.map((p, i) => `\n=== POPPER ${i} ===\n${p.innerHTML.substring(0, 8000)}`)
+        const items = Array.from(document.querySelectorAll('[role="menuitem"],[role="option"],[role="radio"],[role="listitem"]'))
+        out.push(`\n=== MENUITEMS (${items.length}) ===`)
+        items.forEach(el => out.push(el.outerHTML.substring(0, 600)))
+        return out.join('\n')
+      })
+      writeFileSync('C:/tmp/flow-model-picker-html.txt', debugHtml)
+      console.log('[controls] DEBUG: HTML dumped to C:/tmp/flow-model-picker-html.txt')
+    } catch (e) {
+      console.log(`[controls] DEBUG dump error: ${e?.message}`)
+    }
+    // --- END TEMP DEBUG ---
+
+    const picked = await clickFlowModelOption(page, modelKeywords)
+    console.log(`[controls] model picked=${picked}`)
+    await page.waitForTimeout(400)
+  }
+
+  // Close the dropdown by pressing Escape (or clicking outside)
+  await page.keyboard.press("Escape").catch(() => {})
+  await page.waitForTimeout(200)
 }
 
 async function clickLikelySubmitButtonNearComposer(page) {
@@ -1913,17 +2073,25 @@ async function hasVisibleProgressPercent(page) {
     const isVisible = (el) => {
       const rect = el.getBoundingClientRect()
       const style = window.getComputedStyle(el)
-      if (!rect.width || !rect.height) {
-        return false
-      }
-      if (style.visibility === "hidden" || style.display === "none") {
-        return false
-      }
+      if (!rect.width || !rect.height) return false
+      if (style.visibility === "hidden" || style.display === "none") return false
       return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth
     }
-    const nodes = Array.from(document.querySelectorAll("div,span,p,[role=\"status\"],[role=\"progressbar\"]"))
+    const isInsideFailedTile = (el) => {
+      let node = el
+      for (let i = 0; i < 10; i++) {
+        if (!node || !node.parentElement) break
+        node = node.parentElement
+        const text = (node.textContent || "").trim()
+        if (text.startsWith("Failed") || node.querySelector?.('[class*="Failed"],[data-state*="failed"]')) return true
+        if (/^Failed\b/.test(text.split("\n")[0] || "")) return true
+      }
+      return false
+    }
+    return Array.from(document.querySelectorAll("div,span,p,[role=\"status\"],[role=\"progressbar\"]"))
       .filter(isVisible)
-    return nodes.some((el) => /^\d{1,3}%$/.test((el.textContent || "").trim()))
+      .filter(el => !isInsideFailedTile(el))
+      .some(el => /^\d{1,3}%$/.test((el.textContent || "").trim()))
   }).catch(() => false)
 }
 
@@ -1970,6 +2138,7 @@ async function runGeneration(profile, kind, payload) {
     const outputSelectors = kind === "video" ? SELECTOR_VIDEO_OUTPUT : SELECTOR_IMAGE_OUTPUT
     const deadline = Date.now() + ACTION_TIMEOUT_MS
     let firstOutputAt = 0
+    let lastUrlCount = 0
     let stableOutputUrl = ""
     let firstVisualReadyAt = 0
     let noPercentSince = 0
@@ -1983,6 +2152,28 @@ async function runGeneration(profile, kind, payload) {
       } else {
         noPercentSince = 0
       }
+      // If URL already extractable via getMediaUrlRedirect → return immediately, no download needed
+      const allUrls = await extractAllMediaUrls(page)
+      if (allUrls.length > 0) {
+        const percentSettledMs = noPercentSince ? Date.now() - noPercentSince : 0
+        if (allUrls.length > lastUrlCount) {
+          // New image(s) appeared — reset stability timer to wait for remaining images
+          lastUrlCount = allUrls.length
+          firstOutputAt = Date.now()
+          console.log(`[gen] ${kind}: ${allUrls.length} image(s) found, waiting for stability...`)
+        } else if (!firstOutputAt) {
+          firstOutputAt = Date.now()
+        }
+        if (Date.now() - firstOutputAt >= 3000 && percentSettledMs >= 2000) {
+          await saveSnapshot(profile, page, `${kind}-output-found`)
+          appendEvent(profile, "success", `${kind} output ${allUrls.length} URL(s) extracted directly.`)
+          writeProfileMeta(profile)
+          // return first URL as string (compatible), extras in allUrls
+          return allUrls.length === 1 ? allUrls[0] : { url: allUrls[0], urls: allUrls }
+        }
+      } else {
+        firstOutputAt = 0
+      }
       if (kind === "image") {
         const visualReady = await hasLikelyGeneratedImages(page)
         if (visualReady) {
@@ -1991,7 +2182,7 @@ async function runGeneration(profile, kind, payload) {
           }
           const stableMs = Date.now() - firstVisualReadyAt
           const percentSettledMs = noPercentSince ? Date.now() - noPercentSince : 0
-          if (stableMs >= 10000 && percentSettledMs >= 5000) {
+          if (stableMs >= 5000 && percentSettledMs >= 3000) {
             const downloaded = await waitUntilDownloadAvailable(page, deadline)
             if (!downloaded) {
               await saveSnapshot(profile, page, `${kind}-download-not-found`)
@@ -2017,8 +2208,8 @@ async function runGeneration(profile, kind, payload) {
           }
           const stableMs = Date.now() - firstOutputAt
           const percentSettledMs = noPercentSince ? Date.now() - noPercentSince : 0
-          if (stableMs >= 10000 && percentSettledMs >= 5000) {
-            if (kind === "image") {
+          if (stableMs >= 5000 && percentSettledMs >= 3000) {
+            if (kind === "image" && !outputUrl.includes("getMediaUrlRedirect")) {
               const downloaded = await waitUntilDownloadAvailable(page, deadline)
               if (!downloaded) {
                 await saveSnapshot(profile, page, `${kind}-download-not-found`)
