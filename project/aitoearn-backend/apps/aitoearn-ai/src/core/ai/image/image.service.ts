@@ -356,13 +356,16 @@ export class ImageService {
     const created = Math.floor(Date.now() / 1000)
     const list: Array<{ url: string }> = []
 
+    // Prioritize explicit aspectRatio from client (e.g. "16:9"), else derive from size
+    const aspectRatio = request.aspectRatio || this.sizeToAspectRatio(size)
+
     const result = await this.googleFlowBrowserService.createImageTask({
       userId: request.user || '',
       profileId: request.profileId,
       prompt: request.prompt,
       model: request.model,
       size,
-      aspectRatio: this.sizeToAspectRatio(size),
+      aspectRatio,
       n: count,
       flowModel: googleFlowImageModelMapping[request.model],
     })

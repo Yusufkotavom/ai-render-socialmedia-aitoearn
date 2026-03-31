@@ -20,6 +20,8 @@ function compactBody(body) {
     promptLength: typeof b.prompt === "string" ? b.prompt.length : undefined,
     hasImage: typeof b.image === "string" && b.image.length > 0 ? true : undefined,
     size: typeof b.size === "string" ? b.size : undefined,
+    n: typeof b.n === "number" ? b.n : undefined,
+    aspectRatio: typeof b.aspectRatio === "string" ? b.aspectRatio : undefined,
     duration: typeof b.duration === "number" ? b.duration : undefined,
   }
 }
@@ -2164,7 +2166,20 @@ async function runGeneration(profile, kind, payload) {
         } else if (!firstOutputAt) {
           firstOutputAt = Date.now()
         }
+<<<<<<< Updated upstream
         if (Date.now() - firstOutputAt >= 3000 && percentSettledMs >= 2000) {
+=======
+        const stableMs = Date.now() - firstOutputAt
+        console.log(`[gen] ${kind}: stable=${stableMs}ms percent_settled=${percentSettledMs}ms count=${allUrls.length}`)
+        // Normal condition: stable 3s + percent gone 2s
+        const normalReady = stableMs >= 3000 && percentSettledMs >= 2000
+        // Absolute fallback: if images haven't changed for 10s, just use what we have
+        const absoluteTimeout = stableMs >= 10000
+        if (normalReady || absoluteTimeout) {
+          if (absoluteTimeout && !normalReady) {
+            console.log(`[gen] ${kind}: absolute 10s timeout — using ${allUrls.length} URL(s) as-is`)
+          }
+>>>>>>> Stashed changes
           await saveSnapshot(profile, page, `${kind}-output-found`)
           appendEvent(profile, "success", `${kind} output ${allUrls.length} URL(s) extracted directly.`)
           writeProfileMeta(profile)
@@ -2570,6 +2585,7 @@ app.post("/v1/image/generate", async (req, res) => {
       profileId,
       status: "queued",
       outputUrl: null,
+      outputUrls: null,
       error: null,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -2584,9 +2600,16 @@ app.post("/v1/image/generate", async (req, res) => {
       current.status = "processing"
       current.updatedAt = Date.now()
       try {
-        const outputUrl = await runGeneration(profile, "image", req.body || {})
+        const outputResult = await runGeneration(profile, "image", req.body || {})
         current.status = "succeeded"
-        current.outputUrl = outputUrl
+        // runGeneration may return a string or { url, urls } object
+        if (outputResult && typeof outputResult === "object") {
+          current.outputUrl = outputResult.url || null
+          current.outputUrls = Array.isArray(outputResult.urls) ? outputResult.urls : null
+        } else {
+          current.outputUrl = outputResult || null
+          current.outputUrls = null
+        }
         current.updatedAt = Date.now()
       }
       catch (error) {
@@ -2683,6 +2706,7 @@ app.get("/v1/tasks/:taskId", (req, res) => {
     profileId: task.profileId,
     status: task.status,
     outputUrl: task.outputUrl || undefined,
+    outputUrls: task.outputUrls || undefined,
     error: task.error || undefined,
   })
 })
