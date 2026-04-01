@@ -19,6 +19,10 @@ let chromeProc = null
 let activeProfileId = ""
 let activeUrl = FLOW_URL
 
+// Track when Chrome last exited so worker can detect stale CDP
+let chromeExitedAt = 0
+let chromeStartedAt = 0
+
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true })
 }
@@ -29,7 +33,10 @@ function safeFilename(value) {
 
 function profileUserDataDir(profileId) {
   const id = safeFilename(profileId || DEFAULT_PROFILE_ID)
-  return path.join(PROFILES_ROOT_DIR, id, "remote-user-data")
+  // IMPORTANT: must use the SAME path as the playwright worker so the login
+  // session saved here is reused by the headless generation worker.
+  // Worker uses: {PROFILES_ROOT_DIR}/{profileId}/user-data
+  return path.join(PROFILES_ROOT_DIR, id, "user-data")
 }
 
 function cleanupChromeSingletonLocks(userDataDir) {
@@ -116,32 +123,44 @@ async function openChrome(profileId, url) {
     `--user-data-dir=${userDataDir}`,
     nextUrl,
   ]
-  chromeProc = spawn("google-chrome", args, {
+  const proc = spawn("google-chrome", args, {
     env: {
       ...process.env,
       DISPLAY,
     },
     stdio: ["ignore", "ignore", "pipe"],
   })
-  chromeProc.stderr?.on("data", (chunk) => {
+  chromeProc = proc
+  chromeStartedAt = Date.now()
+
+  proc.stderr?.on("data", (chunk) => {
     const text = String(chunk || "").trim()
     if (text) {
       console.log(`[chrome] ${text}`)
     }
   })
-  chromeProc.on("exit", () => {
-    chromeProc = null
+  proc.on("exit", (code, signal) => {
+    // Only clear if this is still the active process
+    if (chromeProc === proc) {
+      chromeProc = null
+    }
+    chromeExitedAt = Date.now()
+    console.log(`[chrome] process exited (code=${code} signal=${signal}). Session saved to disk in ${userDataDir}`)
   })
 
   const cdpReady = await waitForCdpReady()
   activeProfileId = nextProfileId
   activeUrl = nextUrl
+
+  console.log(`[remote-browser] Chrome opened for profile=${nextProfileId} cdpReady=${cdpReady} userDataDir=${userDataDir}`)
+
   return {
     ok: cdpReady,
     profileId: nextProfileId,
     loginUrl: nextUrl,
     noVncUrl: LOGIN_PUBLIC_URL,
     cdpUrl: `http://127.0.0.1:${CDP_PROXY_PORT}`,
+    userDataDir,
   }
 }
 
@@ -150,6 +169,8 @@ app.get("/health", (_req, res) => {
     ok: true,
     chromeRunning: Boolean(chromeProc),
     activeProfileId: activeProfileId || null,
+    chromeStartedAt: chromeStartedAt || null,
+    chromeExitedAt: chromeExitedAt || null,
   })
 })
 
@@ -160,6 +181,8 @@ app.get("/v1/login/info", (_req, res) => {
     noVncUrl: LOGIN_PUBLIC_URL,
     cdpUrl: `http://127.0.0.1:${CDP_PROXY_PORT}`,
     chromeRunning: Boolean(chromeProc),
+    chromeStartedAt: chromeStartedAt || null,
+    chromeExitedAt: chromeExitedAt || null,
   })
 })
 
@@ -191,10 +214,13 @@ app.post("/v1/login/open", async (req, res) => {
 
 app.post("/v1/login/close", (_req, res) => {
   stopChrome()
-    .then(() => res.json({ ok: true }))
+    .then(() => res.json({ ok: true, note: "Chrome stopped. Session data preserved on disk." }))
     .catch(error => res.status(500).json({ message: error instanceof Error ? error.message : String(error) }))
 })
 
 app.listen(PORT, () => {
   console.log(`google-flow-remote-browser listening on :${PORT}`)
+  console.log(`  PROFILES_ROOT_DIR = ${PROFILES_ROOT_DIR}`)
+  console.log(`  user-data path pattern = ${PROFILES_ROOT_DIR}/{profileId}/user-data`)
+  console.log(`  (same as playwright worker — sessions are shared)`)
 })

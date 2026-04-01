@@ -199,7 +199,7 @@ export class GoogleFlowBrowserService {
     })
 
     const text = await response.text()
-    let data: unknown = undefined
+    let data: unknown
     if (text) {
       try {
         data = JSON.parse(text)
@@ -337,6 +337,20 @@ export class GoogleFlowBrowserService {
   async getProfileLoginStatus(profileId: string): Promise<GoogleFlowSessionStatus & { status?: PlaywrightProfileStatus, profile?: PlaywrightProfileSummary }> {
     const path = this.buildPath(this.conf.loginStatusPath, { profileId })
     const response = await this.requestJson('GET', path)
+    const payload = (response && typeof response === 'object') ? response as Record<string, unknown> : {}
+    return {
+      loggedIn: Boolean(payload['loggedIn']),
+      account: typeof payload['account'] === 'string' ? payload['account'] : undefined,
+      status: this.normalizeProfileStatus(payload['status']),
+      profile: payload['profile'] ? this.normalizeProfile(payload['profile']) : undefined,
+      raw: response,
+    }
+  }
+
+  /** Browser-based session verification (explicit check — do not use for polling) */
+  async verifyProfileLogin(profileId: string): Promise<GoogleFlowSessionStatus & { status?: PlaywrightProfileStatus, profile?: PlaywrightProfileSummary }> {
+    const path = this.buildPath(this.conf.loginVerifyPath ?? this.conf.loginStatusPath.replace(/\/status$/, '/verify'), { profileId })
+    const response = await this.requestJson('POST', path)
     const payload = (response && typeof response === 'object') ? response as Record<string, unknown> : {}
     return {
       loggedIn: Boolean(payload['loggedIn']),

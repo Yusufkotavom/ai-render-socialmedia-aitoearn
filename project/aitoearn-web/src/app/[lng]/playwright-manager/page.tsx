@@ -45,6 +45,8 @@ export default function PlaywrightManagerPage() {
     handleResumeLogin,
     handleResetLogin,
     handleCredentialsLogin,
+    handleVerifyLogin,
+    verifyLoading,
     copyDebugReport,
     credentialsModalOpen,
     setCredentialsModalOpen,
@@ -138,7 +140,8 @@ export default function PlaywrightManagerPage() {
           <div>2. Click Open Login Browser (recommended) to login manually in remote browser.</div>
           <div>3. If OTP / verification challenge appears, complete it in worker browser environment.</div>
           <div>4. Click Resume Login, then Check Status until authenticated.</div>
-          <div>5. Use this profileId in image/video generation requests.</div>
+          <div>5. After Docker restart: click <strong>Verify Session</strong> to confirm session is still active.</div>
+          <div>6. Use this profileId in image/video generation requests.</div>
         </div>
       </div>
 
@@ -283,7 +286,7 @@ export default function PlaywrightManagerPage() {
           onClick={() => {
             void checkSession()
           }}
-          disabled={!selectedProfileId || checking || startLoading || resumeLoading || resetLoading || openLoginLoading}
+          disabled={!selectedProfileId || checking || startLoading || resumeLoading || resetLoading || openLoginLoading || verifyLoading}
         >
           {checking
             ? (
@@ -298,6 +301,24 @@ export default function PlaywrightManagerPage() {
                 Check Status
               </>
             )}
+        </Button>
+
+        <Button
+          variant="default"
+          onClick={() => {
+            void handleVerifyLogin()
+          }}
+          disabled={!selectedProfileId || verifyLoading || checking || startLoading || resumeLoading || resetLoading || openLoginLoading}
+          title="Opens a headless browser to verify session. Use after Docker restart."
+        >
+          {verifyLoading
+            ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Verifying…
+              </>
+            )
+            : 'Verify Session'}
         </Button>
 
         <Button

@@ -134,4 +134,16 @@ export class DraftGenerationController {
     const taskIds = await this.draftGenerationService.createImageTextDrafts(token.id, UserType.User, body)
     return CreateDraftGenerationVo.create({ taskIds })
   }
+
+  @ApiDoc({
+    summary: '取消草稿生成任务',
+    description: '通过任务 ID 取消正在生成中的草稿',
+  })
+  @Post('/:id/cancel')
+  async cancelTask(
+    @GetToken() token: TokenInfo,
+    @Param('id') id: string,
+  ): Promise<void> {
+    await this.draftGenerationService.cancelTask(id, token.id)
+  }
 }

@@ -295,17 +295,18 @@ function enqueueForProfile(profileId, taskFn) {
 }
 
 async function closeProfileContext(profileId) {
-  if (REMOTE_CDP_URL) {
-    contexts.delete(profileId)
-    return
-  }
   const promise = contexts.get(profileId)
   if (!promise) {
     return
   }
-  const context = await promise
-  await context.close().catch(() => {})
   contexts.delete(profileId)
+  try {
+    const context = await promise
+    await context.close().catch(() => {})
+  }
+  catch {
+    // already closed or failed to launch — ignore
+  }
 }
 
 async function resolveRemoteCdpEndpoint() {
@@ -400,14 +401,21 @@ async function openRemoteLoginBrowser(profile) {
 }
 
 async function getProfileContext(profile) {
-  if (REMOTE_CDP_URL) {
-    const remoteContextPromise = getRemoteCdpContext()
-    contexts.set(profile.id, remoteContextPromise)
-    return await remoteContextPromise
-  }
+  // Always use a local headless persistent context from disk.
+  // The remote browser (noVNC) saves login session to the SAME user-data dir,
+  // so after closing noVNC the headless context automatically picks up the session.
+  // We never use the remote CDP connection for generation — only for interactive login.
   const existing = contexts.get(profile.id)
   if (existing) {
-    return existing
+    try {
+      // validate context is still alive
+      const ctx = await existing
+      await ctx.pages() // throws if context is closed
+      return ctx
+    }
+    catch {
+      contexts.delete(profile.id)
+    }
   }
 
   const userDataDir = path.join(profileDir(profile.id), "user-data")
@@ -566,20 +574,19 @@ async function openFlowPage(profile) {
   }
   catch (error) {
     const message = String(error?.message || "")
-    const remoteClosed = REMOTE_CDP_URL && /(context|browser).*(closed|disconnected)|Target page, context or browser has been closed/i.test(message)
+    // If the persistent context was closed (e.g. out-of-memory or OS kill),
+    // clear the cached context and retry once with a fresh launch.
+    const contextClosed = /(context|browser).*(closed|disconnected)|Target page, context or browser has been closed/i.test(message)
     const transientFetchFailed = /fetch failed|net::err_/i.test(message)
-    if (!remoteClosed && !transientFetchFailed) {
+    if (!contextClosed && !transientFetchFailed) {
       throw error
     }
 
-    // Remote Chrome can be restarted while worker still holds stale CDP context.
-    // Reset and retry once so status/resume keep using the same logged-in profile session.
     await closeProfileContext(profile.id).catch(() => {})
-    resetRemoteCdpSession()
     contexts.delete(profile.id)
     appendEvent(profile, "warn", transientFetchFailed
-      ? "Transient page fetch failure; reconnecting CDP session."
-      : "CDP context was closed; reconnecting.")
+      ? "Transient page fetch failure; retrying with fresh context."
+      : "Browser context was closed; retrying with fresh context.")
     writeProfileMeta(profile)
     await new Promise(resolve => setTimeout(resolve, 600))
     return await open()
@@ -2166,9 +2173,6 @@ async function runGeneration(profile, kind, payload) {
         } else if (!firstOutputAt) {
           firstOutputAt = Date.now()
         }
-<<<<<<< Updated upstream
-        if (Date.now() - firstOutputAt >= 3000 && percentSettledMs >= 2000) {
-=======
         const stableMs = Date.now() - firstOutputAt
         console.log(`[gen] ${kind}: stable=${stableMs}ms percent_settled=${percentSettledMs}ms count=${allUrls.length}`)
         // Normal condition: stable 3s + percent gone 2s
@@ -2179,7 +2183,6 @@ async function runGeneration(profile, kind, payload) {
           if (absoluteTimeout && !normalReady) {
             console.log(`[gen] ${kind}: absolute 10s timeout — using ${allUrls.length} URL(s) as-is`)
           }
->>>>>>> Stashed changes
           await saveSnapshot(profile, page, `${kind}-output-found`)
           appendEvent(profile, "success", `${kind} output ${allUrls.length} URL(s) extracted directly.`)
           writeProfileMeta(profile)
@@ -2431,7 +2434,28 @@ app.post("/v1/profiles/:id/login/credentials", async (req, res) => {
   }
 })
 
-app.get("/v1/profiles/:id/login/status", async (req, res) => {
+app.get("/v1/profiles/:id/login/status", (req, res) => {
+  try {
+    const profile = getProfileOrThrow(req.params.id)
+    // Return the current in-memory status WITHOUT opening a browser.
+    // The browser-verified status is updated by:
+    //   - /login/start, /login/resume, /login/credentials  (explicit login actions)
+    //   - /v1/image/generate, /v1/video/generate            (generation tasks update profile.status on auth failure)
+    // This makes polling from the UI lightweight and non-blocking.
+    return res.json({
+      profile: serializeProfile(profile),
+      loggedIn: profile.status === PROFILE_STATE_AUTHENTICATED,
+      account: profile.account || undefined,
+      status: profile.status,
+    })
+  }
+  catch (error) {
+    return sendError(res, error)
+  }
+})
+
+// POST /login/verify — explicit browser-based auth check (use this after restart, not for polling)
+app.post("/v1/profiles/:id/login/verify", async (req, res) => {
   try {
     const profile = getProfileOrThrow(req.params.id)
     await enqueueForProfile(profile.id, async () => {
@@ -2440,13 +2464,13 @@ app.get("/v1/profiles/:id/login/status", async (req, res) => {
         const requiresLogin = (await detectLoginRequired(page)) || (await checkWorkspaceLoginRequired(page))
         profile.account = (await detectAccount(page)) || ""
         profile.status = requiresLogin ? PROFILE_STATE_AWAITING_CHALLENGE : PROFILE_STATE_AUTHENTICATED
-        profile.debug.lastStep = "login_status_checked"
+        profile.debug.lastStep = "login_verified"
         profile.debug.lastError = requiresLogin ? "Login required/challenge pending." : ""
         profile.debug.lastUrl = page.url()
         if (requiresLogin) {
-          await saveSnapshot(profile, page, "status-awaiting-challenge")
+          await saveSnapshot(profile, page, "verify-awaiting-challenge")
         }
-        appendEvent(profile, requiresLogin ? "warn" : "success", requiresLogin ? "Status checked: awaiting challenge." : "Status checked: authenticated.")
+        appendEvent(profile, requiresLogin ? "warn" : "success", requiresLogin ? "Verify: awaiting challenge." : "Verify: authenticated.")
         writeProfileMeta(profile)
       }
       finally {

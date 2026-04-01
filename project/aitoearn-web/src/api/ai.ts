@@ -158,6 +158,15 @@ export function getPlaywrightProfileDebug(profileId: string) {
   return http.get(`ai/playwright/profiles/${encodeURIComponent(profileId)}/debug`)
 }
 
+/**
+ * Explicit browser-based session verification.
+ * Opens a headless browser and checks the live session.
+ * Use this after Docker restart or manually — NOT for polling every few seconds.
+ */
+export function verifyPlaywrightProfileLogin(profileId: string) {
+  return http.post(`ai/playwright/profiles/${encodeURIComponent(profileId)}/login/verify`)
+}
+
 // 保留旧的接口以保持向后兼容性（可选）
 // 文生图 - 旧接口（已废弃）
 export function textToImage(data: {

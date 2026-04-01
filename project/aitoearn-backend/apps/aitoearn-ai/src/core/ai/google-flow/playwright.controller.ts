@@ -60,9 +60,28 @@ export class PlaywrightController {
     }
   }
 
+  /**
+   * Returns the current in-memory profile status — lightweight, safe for polling.
+   * Does NOT open a browser window.
+   */
   @Get('/profiles/:profileId/login/status')
   async loginStatus(@GetToken() _token: TokenInfo, @Param('profileId') profileId: string) {
     const status = await this.googleFlowBrowserService.getProfileLoginStatus(profileId)
+    return {
+      loggedIn: status.loggedIn,
+      account: status.account,
+      status: status.status,
+      profile: status.profile,
+    }
+  }
+
+  /**
+   * Performs an explicit browser-based session verification.
+   * Use this after a Docker restart or when you need to confirm login — NOT for automatic polling.
+   */
+  @Post('/profiles/:profileId/login/verify')
+  async verifyLogin(@GetToken() _token: TokenInfo, @Param('profileId') profileId: string) {
+    const status = await this.googleFlowBrowserService.verifyProfileLogin(profileId)
     return {
       loggedIn: status.loggedIn,
       account: status.account,

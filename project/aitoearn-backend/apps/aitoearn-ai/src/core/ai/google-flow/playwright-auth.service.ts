@@ -1,9 +1,11 @@
+import type { PlaywrightProfileAuthStatus } from '@yikart/mongodb'
+import type { PlaywrightProfileDebugInfo, PlaywrightProfileSummary } from '../libs/google-flow-browser'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { Injectable } from '@nestjs/common'
-import { PlaywrightProfileAuthRepository, type PlaywrightProfileAuthStatus } from '@yikart/mongodb'
 import { AppException, ResponseCode } from '@yikart/common'
+import { PlaywrightProfileAuthRepository } from '@yikart/mongodb'
 import { config } from '../../../config'
-import { GoogleFlowBrowserService, type PlaywrightProfileDebugInfo, type PlaywrightProfileSummary } from '../libs/google-flow-browser'
+import { GoogleFlowBrowserService } from '../libs/google-flow-browser'
 
 interface LoginWithCredentialsInput {
   email?: string

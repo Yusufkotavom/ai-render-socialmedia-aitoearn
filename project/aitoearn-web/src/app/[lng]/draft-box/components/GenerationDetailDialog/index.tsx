@@ -9,7 +9,7 @@ import type { DraftGenerationRequest, DraftGenerationTask } from '@/api/draftGen
 import { AlertCircle, CheckCircle2, Loader2, Play } from 'lucide-react'
 import Image from 'next/image'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { apiGetDraftGenerationList } from '@/api/draftGeneration'
+import { apiGetDraftGenerationList, apiCancelDraftGeneration } from '@/api/draftGeneration'
 import { usePlanDetailStore } from '@/app/[lng]/brand-promotion/planDetailStore'
 import { useTransClient } from '@/app/i18n/client'
 import { MediaPreview } from '@/components/common/MediaPreview'
@@ -132,9 +132,10 @@ const RequestParams = memo(({ request, t }: { request: DraftGenerationRequest, t
 RequestParams.displayName = 'RequestParams'
 
 // 任务条目
-const TaskItem = memo(({ task, t }: { task: DraftGenerationTask, t: (key: string, options?: Record<string, unknown>) => string }) => {
+const TaskItem = memo(({ task, t, onStatusChange }: { task: DraftGenerationTask, t: (key: string, options?: Record<string, unknown>) => string, onStatusChange?: (taskId: string, status: DraftGenerationTask['status'], errorMessage?: string) => void }) => {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewIndex, setPreviewIndex] = useState(0)
+  const [cancelling, setCancelling] = useState(false)
   const response = task.status === 'success' ? task.response : undefined
 
   // 构建预览项列表和封面
@@ -167,6 +168,26 @@ const TaskItem = memo(({ task, t }: { task: DraftGenerationTask, t: (key: string
             <span className="text-xs text-muted-foreground">
               {t('detail.pointsConsumed', { points: task.points })}
             </span>
+          )}
+          {task.status === 'generating' && (
+            <button
+              onClick={async () => {
+                if (cancelling) return
+                setCancelling(true)
+                try {
+                  await apiCancelDraftGeneration(task.id)
+                  onStatusChange?.(task.id, 'failed', t('detail.cancelledByUser'))
+                } catch (e) {
+                  console.error(e)
+                } finally {
+                  setCancelling(false)
+                }
+              }}
+              disabled={cancelling}
+              className="ml-auto text-xs text-destructive hover:bg-destructive/10 px-2 py-0.5 rounded cursor-pointer disabled:opacity-50"
+            >
+              {cancelling ? t('detail.stopping') : t('detail.stop')}
+            </button>
           )}
         </div>
 
@@ -326,7 +347,14 @@ const GenerationDetailContent = memo(({ onClose }: { onClose: () => void }) => {
       <ScrollArea className="max-h-[60vh]">
         <div className="space-y-2 pr-2">
           {tasks.map(task => (
-            <TaskItem key={task.id} task={task} t={t} />
+            <TaskItem 
+              key={task.id} 
+              task={task} 
+              t={t} 
+              onStatusChange={(taskId, status) => {
+                setTasks(prev => prev.map(item => item.id === taskId ? { ...item, status, errorMessage: t('detail.cancelledByUser') } : item))
+              }}
+            />
           ))}
 
           {/* 加载触发器 */}

@@ -133,7 +133,10 @@
     "timeLimitedModelTip": "Time-limited models are not guaranteed to be available. If unavailable, please try again later or switch to another model.",
     "draftModeOn": "Generate Draft",
     "draftModeOffVideo": "Generate Video",
-    "draftModeOffImage": "Generate Image"
+    "draftModeOffImage": "Generate Image",
+    "stop": "Stop",
+    "stopping": "Stopping...",
+    "cancelledByUser": "Cancelled by user"
   },
   "tabs": {
     "overview": "Overview",

@@ -138,3 +138,11 @@ export function apiGetDraftGenerationList(page: number = 1, pageSize: number = 1
     true,
   )
 }
+
+/**
+ * 取消（停止）生成中的草稿任务
+ * @param id 任务 ID
+ */
+export function apiCancelDraftGeneration(id: string) {
+  return http.post<void>(`ai/draft-generation/${id}/cancel`, undefined)
+}

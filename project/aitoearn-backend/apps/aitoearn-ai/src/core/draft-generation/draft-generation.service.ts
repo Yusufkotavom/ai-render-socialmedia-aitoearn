@@ -29,9 +29,9 @@ import { MediaMcp } from '../agent/mcp/media.mcp'
 import { UtilMcp } from '../agent/mcp/util.mcp'
 import { VideoUtilsMcp } from '../agent/mcp/video-utils.mcp'
 import { ImageService } from '../ai/image/image.service'
+import { GoogleFlowBrowserService } from '../ai/libs/google-flow-browser'
 import { calculatePricingPoints, ChatPricing } from '../ai/pricing/pricing-calculator'
 import { VideoService } from '../ai/video/video.service'
-import { GoogleFlowBrowserService } from '../ai/libs/google-flow-browser'
 import { getCompatibleAccountTypes } from '../material-adaptation/material-adaptation.constants'
 import { DRAFT_GENERATION_SYSTEM_PROMPT } from './draft-generation.constants'
 import {
@@ -197,6 +197,7 @@ export class DraftGenerationService implements OnModuleDestroy {
       // 调用 Claude Agent（claude-sonnet-4-5）+ MCP 工具执行视频生成
       // Agent 按 system prompt 编排：加载技能 → 选首帧 → 生成视频 → 生成元数据 → 生成封面
       const { result, points } = await this.runAgent(aiLogId, userId, userType, messageContent, abortController)
+      await this.assertTaskGenerating(aiLogId)
 
       // 视频封面兜底：Agent 未生成封面时，从视频自动截帧
       let coverUrl = result.coverUrl
@@ -477,6 +478,7 @@ export class DraftGenerationService implements OnModuleDestroy {
         options?.videoUrls?.[0],
       )
       consumedPoints += videoPoints
+      await this.assertTaskGenerating(aiLogId)
 
       const fullVideoUrl = FileUtil.buildUrl(videoUrl)
       const thumbnailBuffer = await this.videoMetadataService.extractThumbnailFromUrl(fullVideoUrl, 2)
@@ -901,6 +903,7 @@ Return the result as JSON.`
         options.imageSize,
       )
       consumedPoints += imagePoints
+      await this.assertTaskGenerating(aiLogId)
       this.logger.log(
         { aiLogId, generatedCount: generatedImageUrls.length, imagePoints },
         'ImageText: Image generation completed',
@@ -1266,6 +1269,49 @@ Return the result as JSON.`
     return {
       base64: buffer.toString('base64'),
       mimeType: contentType,
+    }
+  }
+
+  /**
+   * Cancel an ongoing draft generation task.
+   * If the job is still waiting in the queue, it will be removed.
+   * Sets the AiLog status to Failed.
+   */
+  async cancelTask(id: string, userId: string): Promise<void> {
+    const aiLog = await this.aiLogRepository.findById(id)
+    if (!aiLog || aiLog.userId !== userId) {
+      throw new AppException(ResponseCode.RecordNotFound, 'Task not found or unauthorized')
+    }
+
+    if (aiLog.status !== AiLogStatus.Generating) {
+      return
+    }
+
+    const cancelled = await this.queueService.cancelDraftGenerationJobByAiLogId(id)
+    const runningTask = this.runningGenerations.get(id)
+    if (runningTask) {
+      runningTask.abortController.abort()
+    }
+
+    await this.aiLogRepository.updateById(id, {
+      $set: {
+        status: AiLogStatus.Failed,
+        errorMessage: 'Cancelled by user',
+        response: {
+          ...(aiLog.response || {}),
+          error: 'Cancelled by user',
+          cancelledAt: new Date().toISOString(),
+          cancelledFromQueue: cancelled,
+        },
+      },
+    })
+    this.logger.log({ aiLogId: id, cancelledQueueJob: cancelled, abortedRunningTask: Boolean(runningTask) }, 'Draft generation task cancelled by user')
+  }
+
+  private async assertTaskGenerating(aiLogId: string): Promise<void> {
+    const aiLog = await this.aiLogRepository.findById(aiLogId)
+    if (!aiLog || aiLog.status !== AiLogStatus.Generating) {
+      throw new AppException(ResponseCode.AiCallFailed, 'Task has been cancelled')
     }
   }
 }

@@ -139,4 +139,15 @@ export class QueueService {
       ...options,
     })
   }
+
+  async cancelDraftGenerationJobByAiLogId(aiLogId: string) {
+    const jobs = await this.draftGenerationQueue.getJobs(['waiting', 'delayed'])
+    for (const job of jobs) {
+      if (job.data?.aiLogId === aiLogId) {
+        await job.remove()
+        return true
+      }
+    }
+    return false
+  }
 }

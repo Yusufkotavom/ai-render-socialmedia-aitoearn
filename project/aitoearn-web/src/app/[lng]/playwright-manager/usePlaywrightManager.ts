@@ -9,6 +9,7 @@ import {
   resetPlaywrightProfileLogin,
   resumePlaywrightProfileLogin,
   startPlaywrightProfileLogin,
+  verifyPlaywrightProfileLogin,
 } from '@/api/ai'
 import { toast } from '@/lib/toast'
 
@@ -69,6 +70,7 @@ export function usePlaywrightManager() {
   const [resetLoading, setResetLoading] = useState(false)
   const [openLoginLoading, setOpenLoginLoading] = useState(false)
   const [autoPolling, setAutoPolling] = useState(false)
+  const [verifyLoading, setVerifyLoading] = useState(false)
   const [events, setEvents] = useState<PlaywrightDebugEvent[]>([])
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false)
   const [credentialsEmail, setCredentialsEmail] = useState('')
@@ -124,6 +126,10 @@ export function usePlaywrightManager() {
     }
   }, [])
 
+  /**
+   * Lightweight status check — reads the in-memory profile state from the worker.
+   * Does NOT open a browser. Safe for frequent polling.
+   */
   const checkSession = useCallback(async (opts?: { silentSuccess?: boolean }) => {
     if (!selectedProfileId) {
       setLoggedIn(null)
@@ -145,14 +151,12 @@ export function usePlaywrightManager() {
       setLoginUrl(nextLoginUrl)
       setLastCheckedAt(nowLabel())
       setDebugMessage(isLoggedIn ? 'Profile session authenticated.' : 'Profile session is not authenticated yet.')
-      pushEvent(isLoggedIn ? 'success' : 'warn', `Status checked: ${profileStatus}`)
       // Keep credentials modal user-driven only; status checks should not force-popup login form.
       if (isLoggedIn) {
         setCredentialsModalOpen(false)
       }
 
       await loadProfiles()
-      await loadDebug(selectedProfileId)
 
       if (isLoggedIn && !opts?.silentSuccess) {
         toast.success('Playwright profile authenticated')
@@ -170,7 +174,7 @@ export function usePlaywrightManager() {
     finally {
       setChecking(false)
     }
-  }, [selectedProfileId, pushEvent, loadProfiles, loadDebug])
+  }, [selectedProfileId, pushEvent, loadProfiles])
 
   const stopAutoPolling = useCallback(() => {
     if (pollingTimerRef.current) {
@@ -190,7 +194,8 @@ export function usePlaywrightManager() {
     }
     pollingDeadlineRef.current = Date.now() + 5 * 60 * 1000
     setAutoPolling(true)
-    pushEvent('info', 'Auto-check started (5s interval, max 5 minutes).')
+    // Auto-polling only reads in-memory status (lightweight, no browser opened)
+    pushEvent('info', 'Auto-check started (5s interval, max 5 minutes). Polling in-memory status only.')
 
     pollingTimerRef.current = setInterval(async () => {
       const ok = await checkSession({ silentSuccess: true })
@@ -202,8 +207,8 @@ export function usePlaywrightManager() {
       }
       if (Date.now() >= pollingDeadlineRef.current) {
         stopAutoPolling()
-        pushEvent('error', 'Auto-check timeout reached.')
-        toast.error('Auto-check timeout. Continue with Resume/Check manually.')
+        pushEvent('error', 'Auto-check timeout reached. Use "Verify Session" for browser-based check.')
+        toast.error('Auto-check timeout. Click Verify Session or Resume manually.')
       }
     }, 5000)
   }, [selectedProfileId, checkSession, pushEvent, stopAutoPolling])
@@ -322,7 +327,9 @@ export function usePlaywrightManager() {
       pushEvent(nextStatus === 'authenticated' ? 'success' : 'warn', `Resume login result: ${nextStatus}`)
       await loadProfiles()
       await loadDebug(selectedProfileId)
-      startAutoPolling()
+      if (nextStatus !== 'authenticated') {
+        startAutoPolling()
+      }
     }
     catch (error: any) {
       const message = error?.message || 'Failed to resume login'
@@ -427,6 +434,52 @@ export function usePlaywrightManager() {
     }
   }, [selectedProfileId, credentialsEmail, credentialsPassword, credentialsRemember, loadProfiles, loadDebug, pushEvent])
 
+  /**
+   * Browser-based session verify — opens headless browser and checks live auth state.
+   * Use after Docker restart or when you need to confirm login. Not for polling.
+   */
+  const handleVerifyLogin = useCallback(async () => {
+    if (!selectedProfileId) {
+      toast.error('Select profile first')
+      return
+    }
+
+    setVerifyLoading(true)
+    try {
+      pushEvent('info', 'Browser verify started (opens headless Chrome)...')
+      const res: any = await verifyPlaywrightProfileLogin(selectedProfileId)
+      const isLoggedIn = Boolean(res?.data?.loggedIn)
+      const nextStatus = String(res?.data?.status || 'idle') as ProfileStatus
+      const nextAccount = res?.data?.account ? String(res.data.account) : ''
+
+      setLoggedIn(isLoggedIn)
+      setStatus(nextStatus)
+      setAccount(nextAccount)
+      setLastCheckedAt(nowLabel())
+      setDebugMessage(isLoggedIn ? 'Browser verify: session authenticated.' : 'Browser verify: session NOT authenticated.')
+      pushEvent(isLoggedIn ? 'success' : 'warn', `Browser verify result: ${nextStatus}`)
+      await loadProfiles()
+      await loadDebug(selectedProfileId)
+
+      if (isLoggedIn) {
+        stopAutoPolling()
+        toast.success('Session verified and authenticated')
+      }
+      else {
+        toast.warning('Session is not authenticated. Please login first.')
+      }
+    }
+    catch (error: any) {
+      const message = error?.message || 'Failed to verify session'
+      setDebugMessage(message)
+      pushEvent('error', message)
+      toast.error(message)
+    }
+    finally {
+      setVerifyLoading(false)
+    }
+  }, [selectedProfileId, loadProfiles, loadDebug, pushEvent, stopAutoPolling])
+
   const copyDebugReport = useCallback(async () => {
     const report = {
       selectedProfileId,
@@ -474,7 +527,15 @@ export function usePlaywrightManager() {
 
     localStorage.setItem('playwright_profile_id', selectedProfileId)
     setEvents([])
-    void checkSession({ silentSuccess: true })
+    // checkSession reads in-memory status (lightweight, no browser opened)
+    void (async () => {
+      const isLoggedIn = await checkSession({ silentSuccess: true })
+      // If already authenticated on mount, do NOT start the polling timer
+      if (!isLoggedIn) {
+        // Only auto-poll if there's a pending login in progress
+        // User must explicitly start login flow to trigger auto-polling
+      }
+    })()
   }, [selectedProfileId, checkSession])
 
   useEffect(() => {
@@ -520,6 +581,8 @@ export function usePlaywrightManager() {
     handleResumeLogin,
     handleResetLogin,
     handleCredentialsLogin,
+    handleVerifyLogin,
+    verifyLoading,
     copyDebugReport,
 
     credentialsModalOpen,

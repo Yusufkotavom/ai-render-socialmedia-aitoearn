@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
 import { ChatModule } from '../chat'
 import { DriveExplorerController } from './drive-explorer.controller'
-import { DriveImportRecord, DriveImportRecordSchema } from './drive-import-record.schema'
 import { DriveExplorerService } from './drive-explorer.service'
+import { DriveImportRecord, DriveImportRecordSchema } from './drive-import-record.schema'
 
 @Module({
   imports: [

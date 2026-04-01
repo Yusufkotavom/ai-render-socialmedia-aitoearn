@@ -40,7 +40,10 @@
     "referenceImages": "참조 이미지",
     "imageModel": "이미지 모델",
     "imageCount": "이미지 수",
-    "imageResolution": "해상도"
+    "imageResolution": "해상도",
+    "stop": "중지",
+    "stopping": "중지 중...",
+    "cancelledByUser": "사용자가 취소함"
   },
   "publishRecord": {
     "untitled": "제목 없음"

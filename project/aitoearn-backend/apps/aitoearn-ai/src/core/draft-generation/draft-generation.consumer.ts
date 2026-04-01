@@ -23,6 +23,12 @@ export class DraftGenerationConsumer extends WorkerHost {
     const { aiLogId, userId, userType, groupId, version } = job.data
 
     try {
+      const aiLog = await this.aiLogRepository.findById(aiLogId)
+      if (!aiLog || aiLog.status !== AiLogStatus.Generating) {
+        this.logger.log({ aiLogId, status: aiLog?.status }, 'Skip draft generation job because task is not generating')
+        return
+      }
+
       if (version === 'v2-image-text') {
         const { prompt, imageUrls, imageModel, imageCount, aspectRatio, imageTextDraftType, platforms } = job.data
         this.logger.log(

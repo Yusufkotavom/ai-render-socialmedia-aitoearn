@@ -40,7 +40,10 @@
     "referenceImages": "参考画像",
     "imageModel": "画像モデル",
     "imageCount": "画像数",
-    "imageResolution": "解像度"
+    "imageResolution": "解像度",
+    "stop": "停止",
+    "stopping": "停止中...",
+    "cancelledByUser": "ユーザーによりキャンセルされました"
   },
   "publishRecord": {
     "untitled": "無題"

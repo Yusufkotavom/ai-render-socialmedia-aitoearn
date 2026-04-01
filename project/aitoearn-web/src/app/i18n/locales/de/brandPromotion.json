@@ -40,7 +40,10 @@
     "referenceImages": "Referenzbilder",
     "imageModel": "Bildmodell",
     "imageCount": "Bilderanzahl",
-    "imageResolution": "Auflösung"
+    "imageResolution": "Auflösung",
+    "stop": "Stoppen",
+    "stopping": "Wird gestoppt...",
+    "cancelledByUser": "Vom Benutzer abgebrochen"
   },
   "publishRecord": {
     "untitled": "Unbenannt"

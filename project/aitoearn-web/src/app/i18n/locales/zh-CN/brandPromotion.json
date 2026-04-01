@@ -133,7 +133,10 @@
     "timeLimitedModelTip": "限时模型不保证可用性，如不可使用，可稍后再试或切换其他模型",
     "draftModeOn": "生成草稿",
     "draftModeOffVideo": "生成视频",
-    "draftModeOffImage": "生成图片"
+    "draftModeOffImage": "生成图片",
+    "stop": "停止",
+    "stopping": "停止中...",
+    "cancelledByUser": "已由用户取消"
   },
   "tabs": {
     "overview": "概览",
