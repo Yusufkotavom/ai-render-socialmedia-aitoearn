@@ -9,6 +9,7 @@ const imageGenerationSchema = z.object({
   quality: z.string().optional().describe('图片质量'),
   response_format: z.enum(['url', 'b64_json']).optional().describe('返回格式'),
   size: z.string().optional().describe('图片尺寸'),
+  aspectRatio: z.enum(['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']).optional().describe('图片宽高比'),
   style: z.string().optional().describe('图片风格'),
   profileId: z.string().optional().describe('Playwright profile ID (required for google-flow-browser models)'),
   user: z.string().optional().describe('用户标识符'),

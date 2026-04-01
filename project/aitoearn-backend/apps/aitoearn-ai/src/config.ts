@@ -203,6 +203,7 @@ export const aiConfigSchema = z.object({
     loginStartPath: z.string().default('/v1/profiles/{profileId}/login/start'),
     loginOpenPath: z.string().default('/v1/profiles/{profileId}/login/open'),
     loginStatusPath: z.string().default('/v1/profiles/{profileId}/login/status'),
+    loginVerifyPath: z.string().default('/v1/profiles/{profileId}/login/verify'),
     loginResumePath: z.string().default('/v1/profiles/{profileId}/login/resume'),
     loginResetPath: z.string().default('/v1/profiles/{profileId}/login/reset'),
     loginCredentialsPath: z.string().default('/v1/profiles/{profileId}/login/credentials'),

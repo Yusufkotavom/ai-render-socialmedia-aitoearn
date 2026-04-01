@@ -1278,9 +1278,9 @@ Return the result as JSON.`
    * Sets the AiLog status to Failed.
    */
   async cancelTask(id: string, userId: string): Promise<void> {
-    const aiLog = await this.aiLogRepository.findById(id)
+    const aiLog = await this.aiLogRepository.getById(id)
     if (!aiLog || aiLog.userId !== userId) {
-      throw new AppException(ResponseCode.RecordNotFound, 'Task not found or unauthorized')
+      throw new AppException(ResponseCode.AiLogNotFound, 'Task not found or unauthorized')
     }
 
     if (aiLog.status !== AiLogStatus.Generating) {
@@ -1309,7 +1309,7 @@ Return the result as JSON.`
   }
 
   private async assertTaskGenerating(aiLogId: string): Promise<void> {
-    const aiLog = await this.aiLogRepository.findById(aiLogId)
+    const aiLog = await this.aiLogRepository.getById(aiLogId)
     if (!aiLog || aiLog.status !== AiLogStatus.Generating) {
       throw new AppException(ResponseCode.AiCallFailed, 'Task has been cancelled')
     }
