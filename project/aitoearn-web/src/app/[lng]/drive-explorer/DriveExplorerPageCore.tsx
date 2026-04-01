@@ -65,7 +65,7 @@ export function DriveExplorerPageCore() {
   const token = useUserStore(state => state.token)
   const language = useUserStore(state => state.lang)
 
-  const fileItems = useMemo(() => browseItems.filter(item => item.kind === 'file'), [browseItems])
+  const fileItems = useMemo(() => (browseItems || []).filter(item => item.kind === 'file'), [browseItems])
   const selectedCount = selectedPaths.size
   const apiBaseUrl = useMemo(() => (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, ''), [])
   const importPercent = useMemo(() => {
@@ -110,7 +110,7 @@ export function DriveExplorerPageCore() {
       setCurrentPath(res.data.path)
       setInputPath(res.data.path)
       setNextCursor(res.data.nextCursor)
-      setBrowseItems(prev => (reset ? res.data.list : [...prev, ...res.data.list]))
+      setBrowseItems(prev => (reset ? (res.data.list || []) : [...prev, ...(res.data.list || [])]))
       if (reset && recordHistory) {
         const nextPath = res.data.path
         setHistory((prev) => {
@@ -384,7 +384,7 @@ export function DriveExplorerPageCore() {
   }, [fetchGroups, stopPolling])
 
   useEffect(() => {
-    const imageItems = browseItems
+    const imageItems = (browseItems || [])
       .filter(item => item.kind === 'file' && item.mediaType === 'img')
       .filter(item => (item.size || 0) <= MAX_THUMBNAIL_SIZE_BYTES)
       .slice(0, isMobileViewport ? MOBILE_THUMBNAIL_LIMIT : DESKTOP_THUMBNAIL_LIMIT)
@@ -595,7 +595,7 @@ export function DriveExplorerPageCore() {
         </CardHeader>
         <CardContent>
           <div className="md:hidden space-y-2">
-            {browseItems.map(item => (
+            {(browseItems || []).map(item => (
               <div key={item.path} className="border rounded-md p-3 space-y-2">
                 <div className="flex items-start gap-3">
                   {renderThumbnail(item)}
@@ -633,7 +633,7 @@ export function DriveExplorerPageCore() {
                 <div className="font-mono text-[11px] text-muted-foreground break-all">{item.path}</div>
               </div>
             ))}
-            {browseItems.length === 0 && (
+            {(browseItems || []).length === 0 && (
               <div className="p-4 text-center text-muted-foreground border rounded-md">No data</div>
             )}
           </div>
@@ -652,7 +652,7 @@ export function DriveExplorerPageCore() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {browseItems.map(item => (
+                {(browseItems || []).map(item => (
                   <TableRow key={item.path}>
                     <TableCell>
                       {item.kind === 'file' && (
@@ -682,7 +682,7 @@ export function DriveExplorerPageCore() {
                     <TableCell className="font-mono text-xs break-all">{item.path}</TableCell>
                   </TableRow>
                 ))}
-                {browseItems.length === 0 && (
+                {(browseItems || []).length === 0 && (
                   <TableRow>
                     <td colSpan={7} className="p-4 text-center text-muted-foreground">No data</td>
                   </TableRow>
