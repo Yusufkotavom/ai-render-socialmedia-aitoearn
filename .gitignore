@@ -50,3 +50,5 @@ project/web/.cursor/
 /debug-snapshots
 .env
 .env.example
+.env.backup
+.codex
