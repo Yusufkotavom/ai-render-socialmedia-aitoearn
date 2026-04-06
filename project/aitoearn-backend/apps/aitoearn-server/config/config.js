@@ -353,10 +353,10 @@ module.exports = {
     },
   },
   aliSms: {
-    accessKeyId: ALI_SMS_ACCESS_KEY_ID,
-    accessKeySecret: ALI_SMS_ACCESS_KEY_SECRET,
-    signName: ALI_SMS_SIGN_NAME,
-    templateCode: ALI_SMS_TEMPLATE_CODE,
+    accessKeyId: ALI_SMS_ACCESS_KEY_ID || '',
+    accessKeySecret: ALI_SMS_ACCESS_KEY_SECRET || '',
+    signName: ALI_SMS_SIGN_NAME || '',
+    templateCode: ALI_SMS_TEMPLATE_CODE || '',
   },
 
   // 内部服务通信
