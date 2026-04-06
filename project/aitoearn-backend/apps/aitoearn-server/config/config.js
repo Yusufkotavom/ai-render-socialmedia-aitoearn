@@ -183,6 +183,15 @@ module.exports = {
       level: 'debug',
       pretty: false,
     },
+    mongodb: {
+      enable: true,
+      level: 'debug',
+      db: buildMongoUri(),
+      collection: 'logs',
+      capped: true,
+      cappedSize: 10 * 1024 * 1024, // 10MB
+      cappedMax: 100000,
+    }
   },
 
   // 数据库

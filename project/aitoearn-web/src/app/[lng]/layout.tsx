@@ -59,6 +59,7 @@ export default async function RootLayout({
   const proto = headersList.get('x-forwarded-proto') || 'https'
   const baseUrl = `${proto}://${host}`
   const autoLoginToken = process.env.AUTO_LOGIN_TOKEN || ''
+  const enableXhsSign = (process.env.NEXT_PUBLIC_ENABLE_XHS_SIGN || '').toLowerCase() === 'true'
 
   return (
     <html lang={lng} dir={dir(lng)} suppressHydrationWarning>
@@ -110,14 +111,14 @@ export default async function RootLayout({
             <LayoutSidebar />
             {/* 主内容区域 - 根据页面类型动态控制 pt-14 */}
             <MainContent>{children}</MainContent>
-            {/* eslint-disable-next-line next/no-sync-scripts */}
-            <script src="/js/xhs_web_sign.js" />
-            {/* eslint-disable-next-line next/no-sync-scripts */}
-            <script src="/js/xhs_sign_init.js" />
-            {/* eslint-disable-next-line next/no-sync-scripts */}
-            <script src="/js/xhs_sign_core.js" />
-            {/* eslint-disable-next-line next/no-sync-scripts */}
-            <script src="/js/xhs_sign_inject.js" />
+            {enableXhsSign && (
+              <>
+                <Script src="/js/xhs_web_sign.js" strategy="afterInteractive" />
+                <Script src="/js/xhs_sign_init.js" strategy="afterInteractive" />
+                <Script src="/js/xhs_sign_core.js" strategy="afterInteractive" />
+                <Script src="/js/xhs_sign_inject.js" strategy="afterInteractive" />
+              </>
+            )}
           </div>
         </Providers>
       </body>

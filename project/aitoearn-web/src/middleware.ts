@@ -35,6 +35,8 @@ export const config = {
 }
 
 export function middleware(req: NextRequest) {
+  const noAiMode = ['1', 'true', 'yes'].includes((process.env.NEXT_PUBLIC_DISABLE_AI || '').toLowerCase())
+
   if (ProxyUrls.find(v => req.nextUrl.pathname.includes(v!))) {
     return NextResponse.next()
   }
@@ -60,6 +62,24 @@ export function middleware(req: NextRequest) {
   if (req.nextUrl.pathname.includes('icon') || req.nextUrl.pathname.includes('chrome')) {
     return NextResponse.next()
   }
+
+  if (noAiMode) {
+    const aiOnlyRoutes = [
+      'ai-social',
+      'tasks-history',
+      'agent-assets',
+      'internal-tools',
+      'playwright-manager',
+      'playwright-batch',
+    ]
+    const pathParts = req.nextUrl.pathname.split('/').filter(Boolean)
+    const routeSegment = pathParts[1]
+    const currentLang = pathParts[0]
+    if (routeSegment && currentLang && languages.includes(currentLang) && aiOnlyRoutes.includes(routeSegment)) {
+      return NextResponse.redirect(new URL(`/${currentLang}`, req.url))
+    }
+  }
+
   let lng: string | undefined | null
   if (req.cookies.has(cookieName))
     lng = normalizeLanguageCode(req.cookies.get(cookieName)?.value)

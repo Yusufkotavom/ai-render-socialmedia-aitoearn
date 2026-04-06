@@ -59,24 +59,11 @@ export const routerData: IRouterDataItem[] = [
     path: '/accounts',
     icon: <Upload size={20} />,
   },
-  // Tasks moved to notification panel
-  {
-    name: 'Agent Assets',
-    translationKey: 'header.agentAssets',
-    path: '/agent-assets',
-    icon: <Bot size={20} />,
-  },
   {
     name: 'Drive Explorer',
     translationKey: 'driveExplorer',
     path: '/drive-explorer',
     icon: <HardDrive size={20} />,
-  },
-  {
-    name: 'Internal Tools',
-    translationKey: 'internalToolsHub',
-    path: '/internal-tools',
-    icon: <PanelsTopLeft size={20} />,
   },
   {
     name: 'Content Manager',
@@ -90,18 +77,34 @@ export const routerData: IRouterDataItem[] = [
     path: '/content-scheduler',
     icon: <CalendarClock size={20} />,
   },
-  {
-    name: 'Playwright Manager',
-    translationKey: 'playwrightManager',
-    path: '/playwright-manager',
-    icon: <Wrench size={20} />,
-  },
-  {
-    name: 'Playwright Batch',
-    translationKey: 'playwrightBatch',
-    path: '/playwright-batch',
-    icon: <Images size={20} />,
-  },
+  ...(AI_FEATURE_ENABLED
+    ? [
+        {
+          name: 'Agent Assets',
+          translationKey: 'header.agentAssets',
+          path: '/agent-assets',
+          icon: <Bot size={20} />,
+        },
+        {
+          name: 'Internal Tools',
+          translationKey: 'internalToolsHub',
+          path: '/internal-tools',
+          icon: <PanelsTopLeft size={20} />,
+        },
+        {
+          name: 'Playwright Manager',
+          translationKey: 'playwrightManager',
+          path: '/playwright-manager',
+          icon: <Wrench size={20} />,
+        },
+        {
+          name: 'Playwright Batch',
+          translationKey: 'playwrightBatch',
+          path: '/playwright-batch',
+          icon: <Images size={20} />,
+        },
+      ]
+    : []),
   {
     name: 'System Logs',
     translationKey: 'systemLogs',
