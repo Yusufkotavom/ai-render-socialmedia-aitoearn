@@ -19,6 +19,7 @@ RUN apk add --no-cache curl ffmpeg
 WORKDIR /app
 
 COPY assets/ ./
+COPY apps/aitoearn-server/config/config.js ./config.js
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/dist ./dist
 COPY --from=deps /app/libs ./libs
