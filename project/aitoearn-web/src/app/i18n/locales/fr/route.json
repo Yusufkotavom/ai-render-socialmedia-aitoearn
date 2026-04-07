@@ -20,5 +20,6 @@
   "taskSquare": "Place de la ruée vers l'or",
   "contentManager": "Content Manager",
   "contentScheduler": "Content Scheduler",
-  "playwrightManager": "Playwright Manager"
+  "playwrightManager": "Playwright Manager",
+  "bulkPublishRunner": "Bulk Publish Runner"
 }

@@ -14,4 +14,12 @@ export class ChannelRedisKeys {
   static userPageList(platform: string, accountId: string) {
     return `${platform}:user_page_list:${accountId}`
   }
+
+  static bulkPublishBatch(batchId: string) {
+    return `publish:bulk:batch:${batchId}`
+  }
+
+  static bulkPublishIdempotency(userId: string, operation: string, key: string) {
+    return `publish:bulk:idem:${userId}:${operation}:${key}`
+  }
 }

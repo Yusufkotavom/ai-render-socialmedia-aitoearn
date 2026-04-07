@@ -14,6 +14,7 @@ import { ChannelInternalModule } from './internal/internal.module'
 import { PlatModule } from './platforms/platforms.module'
 import { PublishController } from './publish.controller'
 import { PublishService } from './publish.service'
+import { BulkPublishRunnerService } from './bulk-publish-runner.service'
 import { PublishModule as PublishingModule } from './publishing/publishing.module'
 
 @Global()
@@ -30,7 +31,7 @@ import { PublishModule as PublishingModule } from './publishing/publishing.modul
     AccountModule,
     ChannelInternalModule,
   ],
-  providers: [ChannelService, PublishService],
+  providers: [ChannelService, PublishService, BulkPublishRunnerService],
   controllers: [
     PublishController,
     InteracteController,

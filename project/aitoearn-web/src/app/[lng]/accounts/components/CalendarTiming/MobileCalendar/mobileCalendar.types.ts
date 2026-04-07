@@ -7,7 +7,7 @@
 import type { PublishRecordItem } from '@/api/plat/types/publish.types'
 
 /** 视图类型 */
-export type ViewType = 'week' | 'month'
+export type ViewType = 'week' | 'month' | 'list'
 
 /** MobileCalendar 主组件 Props */
 export interface IMobileCalendarProps {

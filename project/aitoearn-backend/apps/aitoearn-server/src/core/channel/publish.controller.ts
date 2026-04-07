@@ -13,10 +13,14 @@ import { PublishStatus } from '@yikart/mongodb'
 import { plainToInstance } from 'class-transformer'
 import { PublishRecordService } from '../publish-record/publish-record.service'
 import { RelayClientService } from '../relay/relay-client.service'
+import { BulkPublishRunnerService } from './bulk-publish-runner.service'
 import { ChannelAccountService } from './platforms/channel-account.service'
 import { PostHistoryItemVo, PublishRecordItemVo } from './publish-response.vo'
 import {
   BatchUpdatePublishRecordTimeDto,
+  BulkDeleteQueuedDto,
+  BulkPublishNowDto,
+  BulkUpdateTimeDto,
   CreateScheduleBatchDto,
   CreateScheduleRuleDto,
   CreatePublishDto,
@@ -39,6 +43,7 @@ export class PublishController {
 
   constructor(
     private readonly publishService: PublishService,
+    private readonly bulkPublishRunnerService: BulkPublishRunnerService,
     private readonly publishingService: PublishingService,
     private readonly publishRecordService: PublishRecordService,
     private readonly channelAccountService: ChannelAccountService,
@@ -258,6 +263,66 @@ export class PublishController {
     @Body() data: NowPubTaskBodyDto,
   ) {
     return this.publishingService.publishTaskImmediately(id, data?.publishTime)
+  }
+
+  @ApiDoc({
+    summary: '批量立即发布任务（异步批处理）',
+    body: BulkPublishNowDto.schema,
+  })
+  @Post('bulk/publish-now')
+  async bulkPublishNow(
+    @GetToken() token: TokenInfo,
+    @Body() data: BulkPublishNowDto,
+  ) {
+    return this.bulkPublishRunnerService.createPublishNowBatch(
+      token.id,
+      data.ids,
+      data.publishTime,
+      data.idempotencyKey,
+    )
+  }
+
+  @ApiDoc({
+    summary: '批量删除已入队任务（异步批处理）',
+    body: BulkDeleteQueuedDto.schema,
+  })
+  @Post('bulk/delete-queued')
+  async bulkDeleteQueued(
+    @GetToken() token: TokenInfo,
+    @Body() data: BulkDeleteQueuedDto,
+  ) {
+    return this.bulkPublishRunnerService.createDeleteQueuedBatch(
+      token.id,
+      data.ids,
+      data.idempotencyKey,
+    )
+  }
+
+  @ApiDoc({
+    summary: '批量更新发布时间（异步批处理）',
+    body: BulkUpdateTimeDto.schema,
+  })
+  @Post('bulk/update-time')
+  async bulkUpdateTime(
+    @GetToken() token: TokenInfo,
+    @Body() data: BulkUpdateTimeDto,
+  ) {
+    return this.bulkPublishRunnerService.createUpdateTimeBatch(
+      token.id,
+      data.updates,
+      data.idempotencyKey,
+    )
+  }
+
+  @ApiDoc({
+    summary: '获取批处理状态',
+  })
+  @Get('bulk/:batchId')
+  async getBulkStatus(
+    @GetToken() token: TokenInfo,
+    @Param('batchId') batchId: string,
+  ) {
+    return this.bulkPublishRunnerService.getBatchStatus(token.id, batchId)
   }
 
   @ApiDoc({
