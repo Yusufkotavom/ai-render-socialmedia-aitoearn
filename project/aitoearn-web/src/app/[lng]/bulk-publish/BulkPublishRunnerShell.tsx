@@ -1,4 +1,5 @@
 'use client'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import type { PromotionMaterial, PromotionPlan } from '@/app/[lng]/brand-promotion/brandPromotionStore/types'
 import type { BulkBatchStatus } from '@/api/bulk-publish'
@@ -390,202 +391,215 @@ export default function BulkPublishRunnerShell() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Input Selection (Publish Records)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <Select value={accountFilter} onValueChange={setAccountFilter}>
-              <SelectTrigger><SelectValue placeholder="Account filter" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Accounts</SelectItem>
-                {accountList.map(item => (
-                  <SelectItem key={item.id} value={item.id}>{item.nickname || item.account || item.id}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-              <SelectTrigger><SelectValue placeholder="Status filter" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="queued">Queued</SelectItem>
-                <SelectItem value="running">Running</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input value={searchText} onChange={e => setSearchText(e.target.value)} placeholder="Search title/desc/id" />
-            <Input type="datetime-local" value={bulkPublishTime} onChange={e => setBulkPublishTime(e.target.value)} />
-          </div>
+      <Tabs defaultValue="schedule" className="w-full">
+        <TabsList className="w-full md:w-auto grid grid-cols-2 md:inline-flex mb-4">
+          <TabsTrigger value="schedule">1. Schedule Materials</TabsTrigger>
+          <TabsTrigger value="manage">2. Manage Queue & Monitor</TabsTrigger>
+        </TabsList>
 
-          <div className="flex items-center justify-between text-sm">
-            <div className="text-muted-foreground">Visible: {filteredPosts.length} | Selected: {selectedCount}</div>
-            <Button variant="ghost" size="sm" onClick={toggleSelectAllVisible}>
-              {allVisibleSelected ? 'Unselect Visible' : 'Select Visible'}
-            </Button>
-          </div>
-
-          <div className="max-h-[360px] overflow-auto rounded border">
-            {filteredPosts.map((item) => (
-              <div key={item.id} className="flex items-center gap-3 p-2 border-b last:border-b-0">
-                <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => togglePost(item.id)} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm truncate">{item.title || '(No title)'} · {item.accountType}</div>
-                  <div className="text-xs text-muted-foreground truncate">{item.id} · {dayjs(item.publishTime).format('YYYY-MM-DD HH:mm')}</div>
+        <TabsContent value="schedule" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Schedule Batch (Create Queue from Materials)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <Select value={scheduleAccountId} onValueChange={setScheduleAccountId}>
+                  <SelectTrigger><SelectValue placeholder="Account" /></SelectTrigger>
+                  <SelectContent>
+                    {accountList.map(item => (
+                      <SelectItem key={item.id} value={item.id}>{item.nickname || item.account || item.id}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={scheduleMode} onValueChange={(v) => setScheduleMode(v as ScheduleMode)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viral_slots">viral_slots</SelectItem>
+                    <SelectItem value="interval">interval</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Input type="datetime-local" value={scheduleStartAt} onChange={e => setScheduleStartAt(e.target.value)} />
+              {scheduleMode === 'viral_slots'
+                ? <Input value={slotsText} onChange={e => setSlotsText(e.target.value)} placeholder="10:00,15:00,17:00" />
+                : <Input value={intervalHours} onChange={e => setIntervalHours(e.target.value)} placeholder="Interval hours" />}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                  <SelectTrigger><SelectValue placeholder="Material group" /></SelectTrigger>
+                  <SelectContent>
+                    {groups.map(group => (
+                      <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="text-xs text-muted-foreground flex items-center">
+                  Selected Materials: {selectedMaterialIds.size}
                 </div>
               </div>
-            ))}
-            {filteredPosts.length === 0 && (
-              <div className="p-3 text-sm text-muted-foreground">No records.</div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Bulk Actions (Async)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button className="w-full" onClick={() => void runBulkPublishNow()} disabled={runningAction !== ''}>
-              {runningAction === 'publish-now' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Rocket className="w-4 h-4 mr-2" />}
-              Publish Now Batch
-            </Button>
-            <Button className="w-full" variant="outline" onClick={() => void runBulkUpdateTime()} disabled={runningAction !== ''}>
-              {runningAction === 'update-time' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CalendarClock className="w-4 h-4 mr-2" />}
-              Update Time Batch
-            </Button>
-            <Button className="w-full" variant="destructive" onClick={() => void runBulkDeleteQueued()} disabled={runningAction !== ''}>
-              {runningAction === 'delete-queued' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-              Delete Queued Batch
-            </Button>
-            <div className="text-xs text-muted-foreground">
-              Delete Queued only succeeds for tasks that are currently in queue.
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Schedule Batch (Materials)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <Select value={scheduleAccountId} onValueChange={setScheduleAccountId}>
-                <SelectTrigger><SelectValue placeholder="Account" /></SelectTrigger>
-                <SelectContent>
-                  {accountList.map(item => (
-                    <SelectItem key={item.id} value={item.id}>{item.nickname || item.account || item.id}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={scheduleMode} onValueChange={(v) => setScheduleMode(v as ScheduleMode)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="viral_slots">viral_slots</SelectItem>
-                  <SelectItem value="interval">interval</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Input type="datetime-local" value={scheduleStartAt} onChange={e => setScheduleStartAt(e.target.value)} />
-            {scheduleMode === 'viral_slots'
-              ? <Input value={slotsText} onChange={e => setSlotsText(e.target.value)} placeholder="10:00,15:00,17:00" />
-              : <Input value={intervalHours} onChange={e => setIntervalHours(e.target.value)} placeholder="Interval hours" />}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                <SelectTrigger><SelectValue placeholder="Material group" /></SelectTrigger>
-                <SelectContent>
-                  {groups.map(group => (
-                    <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="text-xs text-muted-foreground flex items-center">
-                Selected Materials: {selectedMaterialIds.size}
-              </div>
-            </div>
-            <div className="max-h-[160px] overflow-auto rounded border">
-              {materials.map(item => (
-                <label key={item.id} className="flex items-center gap-2 p-2 border-b last:border-b-0">
-                  <Checkbox
-                    checked={selectedMaterialIds.has(item.id)}
-                    onCheckedChange={() => {
-                      setSelectedMaterialIds((prev) => {
-                        const next = new Set(prev)
-                        if (next.has(item.id))
-                          next.delete(item.id)
-                        else
-                          next.add(item.id)
-                        return next
-                      })
-                    }}
-                  />
-                  <span className="text-sm truncate">{item.title || item.id}</span>
-                </label>
-              ))}
-            </div>
-            <Button className="w-full" onClick={() => void runScheduleBatch()} disabled={runningAction !== ''}>
-              {runningAction === 'schedule' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CalendarClock className="w-4 h-4 mr-2" />}
-              Apply Schedule Batch
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Execution Monitor</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {!batchStatus && <div className="text-sm text-muted-foreground">No active batch yet.</div>}
-          {batchStatus && (
-            <>
-              <div className="text-sm">
-                Batch: <span className="font-mono">{batchStatus.batchId}</span> · Operation: <span className="font-medium">{batchStatus.operation}</span> · State: <span className="font-medium">{batchStatus.state}</span>
-              </div>
-              <div className="w-full h-2 rounded bg-muted overflow-hidden">
-                <div className={cn('h-full bg-primary transition-all')} style={{ width: `${progress}%` }} />
-              </div>
-              <div className="text-xs text-muted-foreground">
-                total={batchStatus.summary.total} pending={batchStatus.summary.pending} running={batchStatus.summary.running} success={batchStatus.summary.success} failed={batchStatus.summary.failed}
-              </div>
-              <div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void retryFailedSubset()}
-                  disabled={runningAction !== '' || batchStatus.summary.failed === 0}
-                >
-                  {runningAction === 'retry-failed' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  Retry Failed
-                </Button>
-              </div>
-              <div className="max-h-[260px] overflow-auto rounded border">
-                {batchStatus.items.map(item => (
-                  <div key={`${batchStatus.batchId}-${item.id}`} className="p-2 border-b last:border-b-0">
-                    <div className="text-sm flex items-center justify-between gap-2">
-                      <span className="font-mono truncate">{item.id}</span>
-                      <span className={cn(
-                        'text-xs px-2 py-0.5 rounded',
-                        item.status === 'success' && 'bg-green-100 text-green-700',
-                        item.status === 'failed' && 'bg-red-100 text-red-700',
-                        item.status === 'running' && 'bg-blue-100 text-blue-700',
-                        item.status === 'pending' && 'bg-muted text-muted-foreground',
-                      )}
-                      >
-                        {item.status}
-                      </span>
-                    </div>
-                    {item.error && <div className="text-xs text-red-600 mt-1">{item.error}</div>}
-                  </div>
+              <div className="max-h-[160px] overflow-auto rounded border">
+                {materials.map(item => (
+                  <label key={item.id} className="flex items-center gap-2 p-2 border-b last:border-b-0">
+                    <Checkbox
+                      checked={selectedMaterialIds.has(item.id)}
+                      onCheckedChange={() => {
+                        setSelectedMaterialIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(item.id))
+                            next.delete(item.id)
+                          else
+                            next.add(item.id)
+                          return next
+                        })
+                      }}
+                    />
+                    <span className="text-sm truncate">{item.title || item.id}</span>
+                  </label>
                 ))}
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+              <Button className="w-full" onClick={() => void runScheduleBatch()} disabled={runningAction !== ''}>
+                {runningAction === 'schedule' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CalendarClock className="w-4 h-4 mr-2" />}
+                Apply Schedule Batch
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="manage" className="space-y-4">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Input Selection (Existing Publish Records)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <Select value={accountFilter} onValueChange={setAccountFilter}>
+                    <SelectTrigger><SelectValue placeholder="Account filter" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Accounts</SelectItem>
+                      {accountList.map(item => (
+                        <SelectItem key={item.id} value={item.id}>{item.nickname || item.account || item.id}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+                    <SelectTrigger><SelectValue placeholder="Status filter" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="queued">Queued</SelectItem>
+                      <SelectItem value="running">Running</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input value={searchText} onChange={e => setSearchText(e.target.value)} placeholder="Search title/desc/id" />
+                  <Input type="datetime-local" value={bulkPublishTime} onChange={e => setBulkPublishTime(e.target.value)} />
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <div className="text-muted-foreground">Visible: {filteredPosts.length} | Selected: {selectedCount}</div>
+                  <Button variant="ghost" size="sm" onClick={toggleSelectAllVisible}>
+                    {allVisibleSelected ? 'Unselect Visible' : 'Select Visible'}
+                  </Button>
+                </div>
+
+                <div className="max-h-[360px] overflow-auto rounded border">
+                  {filteredPosts.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 p-2 border-b last:border-b-0">
+                      <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => togglePost(item.id)} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm truncate">{item.title || '(No title)'} · {item.accountType}</div>
+                        <div className="text-xs text-muted-foreground truncate">{item.id} · {dayjs(item.publishTime).format('YYYY-MM-DD HH:mm')}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredPosts.length === 0 && (
+                    <div className="p-3 text-sm text-muted-foreground">No records.</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Bulk Actions (Force Publish / Update)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button className="w-full" onClick={() => void runBulkPublishNow()} disabled={runningAction !== ''}>
+                    {runningAction === 'publish-now' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Rocket className="w-4 h-4 mr-2" />}
+                    Publish Now Batch
+                  </Button>
+                  <Button className="w-full" variant="outline" onClick={() => void runBulkUpdateTime()} disabled={runningAction !== ''}>
+                    {runningAction === 'update-time' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CalendarClock className="w-4 h-4 mr-2" />}
+                    Update Time Batch
+                  </Button>
+                  <Button className="w-full" variant="destructive" onClick={() => void runBulkDeleteQueued()} disabled={runningAction !== ''}>
+                    {runningAction === 'delete-queued' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                    Delete Queued Batch
+                  </Button>
+                  <div className="text-xs text-muted-foreground">
+                    Delete Queued only succeeds for tasks that are currently in queue.
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Execution Monitor (For Bulk Actions)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {!batchStatus && <div className="text-sm text-muted-foreground">No active batch yet.</div>}
+                  {batchStatus && (
+                    <>
+                      <div className="text-sm">
+                        Batch: <span className="font-mono">{batchStatus.batchId}</span> · Operation: <span className="font-medium">{batchStatus.operation}</span> · State: <span className="font-medium">{batchStatus.state}</span>
+                      </div>
+                      <div className="w-full h-2 rounded bg-muted overflow-hidden">
+                        <div className={cn('h-full bg-primary transition-all')} style={{ width: `${progress}%` }} />
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        total={batchStatus.summary.total} pending={batchStatus.summary.pending} running={batchStatus.summary.running} success={batchStatus.summary.success} failed={batchStatus.summary.failed}
+                      </div>
+                      <div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void retryFailedSubset()}
+                          disabled={runningAction !== '' || batchStatus.summary.failed === 0}
+                        >
+                          {runningAction === 'retry-failed' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                          Retry Failed
+                        </Button>
+                      </div>
+                      <div className="max-h-[260px] overflow-auto rounded border">
+                        {batchStatus.items.map(item => (
+                          <div key={`${batchStatus.batchId}-${item.id}`} className="p-2 border-b last:border-b-0">
+                            <div className="text-sm flex items-center justify-between gap-2">
+                              <span className="font-mono truncate">{item.id}</span>
+                              <span className={cn(
+                                'text-xs px-2 py-0.5 rounded',
+                                item.status === 'success' && 'bg-green-100 text-green-700',
+                                item.status === 'failed' && 'bg-red-100 text-red-700',
+                                item.status === 'running' && 'bg-blue-100 text-blue-700',
+                                item.status === 'pending' && 'bg-muted text-muted-foreground',
+                              )}
+                              >
+                                {item.status}
+                              </span>
+                            </div>
+                            {item.error && <div className="text-xs text-red-600 mt-1">{item.error}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
