@@ -30,5 +30,8 @@
   "termsOfService": "서비스 이용약관",
   "and": "및",
   "privacyPolicy": "개인정보 처리방침",
-  "newUserPromotion": "신규 사용자는 14일 무료 멤버십을 받으세요!"
+  "newUserPromotion": "신규 사용자는 14일 무료 멤버십을 받으세요!",
+  "passwordPlaceholder": "Enter your password",
+  "passwordRequired": "Please enter your password",
+  "loginWithPassword": "Sign in with password"
 }

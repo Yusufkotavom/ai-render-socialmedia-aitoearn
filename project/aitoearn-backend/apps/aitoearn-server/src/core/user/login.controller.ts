@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Logger, Post, Put, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Headers, Logger, Post, Put, UseGuards } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { AitoearnAuthService, GetToken, Public, TokenInfo } from '@yikart/aitoearn-auth'
 import { ApiDoc, AppException, ResponseCode } from '@yikart/common'
@@ -11,8 +11,11 @@ import { encryptPassword } from '../../common/utils/password.util'
 import { config } from '../../config'
 import {
   GoogleLoginDto,
+  AdminPasswordOpDto,
   MailLoginDto,
   MailLoginSchema,
+  PasswordLoginDto,
+  PasswordLoginSchema,
   MailRepasswordDto,
   MailRepasswordVerifyDto,
   MailRepasswordVerifySchema,
@@ -289,6 +292,75 @@ export class LoginController {
   }
 
   @ApiDoc({
+    summary: '邮箱密码登录',
+    description: '通过邮箱和密码登录，要求用户已设置密码。',
+    body: PasswordLoginSchema,
+  })
+  @Public()
+  @RateLimit({ ttl: 60, limit: 10, keyGenerator: req => `passwordLogin:${req.body.mail}` })
+  @Post('password')
+  async loginByPassword(@Body() body: PasswordLoginDto) {
+    const { mail, password } = body
+    const userInfo = await this.userService.validateUserPasswordByMail(mail, password)
+    if (!userInfo) {
+      throw new AppException(ResponseCode.ValidationFailed, 'Invalid email or password')
+    }
+    if (userInfo.status === UserStatus.STOP) {
+      throw new AppException(ResponseCode.UserStatusError)
+    }
+    const token = this.authService.generateToken(userInfo)
+    const tokenInfo = this.authService.decodeToken(token)
+    this.userService.afterLogin(userInfo)
+    return {
+      type: 'login',
+      token,
+      exp: tokenInfo.exp,
+      userInfo: this.sanitizeUserInfo(userInfo),
+    }
+  }
+
+  @ApiDoc({
+    summary: '管理员密码检查（运维）',
+    description: '通过 Admin Secret 检查管理员邮箱与密码是否匹配。',
+    body: AdminPasswordOpDto.schema,
+  })
+  @Public()
+  @Post('admin/password/check')
+  async checkAdminPassword(
+    @Headers('x-admin-password-token') adminToken: string,
+    @Body() body: AdminPasswordOpDto,
+  ) {
+    this.assertAdminPasswordToken(adminToken)
+    const userInfo = await this.userService.validateUserPasswordByMail(body.mail, body.password)
+    return {
+      ok: !!userInfo,
+      hasUser: !!(await this.userService.getUserInfoByMail(body.mail, true)),
+    }
+  }
+
+  @ApiDoc({
+    summary: '管理员密码注入/重置（运维）',
+    description: '通过 Admin Secret 为管理员邮箱注入或重置密码。',
+    body: AdminPasswordOpDto.schema,
+  })
+  @Public()
+  @Post('admin/password/inject')
+  async injectAdminPassword(
+    @Headers('x-admin-password-token') adminToken: string,
+    @Body() body: AdminPasswordOpDto,
+  ) {
+    this.assertAdminPasswordToken(adminToken)
+    const updatedUser = await this.userService.setPasswordByMail(body.mail, body.password)
+    if (!updatedUser) {
+      throw new AppException(ResponseCode.UserNotFound, 'Admin user not found or password update failed')
+    }
+    return {
+      ok: true,
+      userInfo: this.sanitizeUserInfo(updatedUser),
+    }
+  }
+
+  @ApiDoc({
     summary: '获取账号注销验证码',
     description: '向用户发送账号注销验证码。',
   })
@@ -355,5 +427,23 @@ export class LoginController {
 
     const res = await this.userService.delete(tokenInfo.id)
     return res
+  }
+
+  private assertAdminPasswordToken(adminToken?: string) {
+    const expected = (process.env['ADMIN_PASSWORD_TOKEN'] || '').trim()
+    if (!expected || adminToken !== expected) {
+      throw new AppException(ResponseCode.ValidationFailed, 'Invalid admin password token')
+    }
+  }
+
+  // Never return credential fields to client responses.
+  private sanitizeUserInfo(user: unknown) {
+    const data
+      = user && typeof user === 'object' && 'toObject' in user && typeof (user as { toObject?: unknown }).toObject === 'function'
+        ? (user as { toObject: () => Record<string, unknown> }).toObject()
+        : ({ ...(user as Record<string, unknown>) })
+    delete data['password']
+    delete data['salt']
+    return data
   }
 }

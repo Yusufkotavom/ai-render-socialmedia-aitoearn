@@ -6,6 +6,7 @@ import { MaterialGroupRepository, MediaGroupRepository, User, UserAiInfo, UserRe
 import { PsChannel, RedisPubSubService, RedisService } from '@yikart/redis'
 import axios from 'axios'
 import { google } from 'googleapis'
+import { encryptPassword, validatePassWord } from '../../common/utils/password.util'
 import { NewUser, UserCreateType } from './class/user.class'
 import { ReportLocationDto, UpdateUserInfoDto } from './user.dto'
 
@@ -346,5 +347,30 @@ export class UserService {
       this.redisService.del(`UserInfo:${userId}`)
     }
     return result
+  }
+
+  async validateUserPasswordByMail(mail: string, password: string): Promise<User | null> {
+    const user = await this.userRepository.getByMail(mail, true)
+    if (!user || user.isDelete) {
+      return null
+    }
+    if (!user.password || !user.salt) {
+      return null
+    }
+    const isValid = validatePassWord(user.password, user.salt, password)
+    return isValid ? user : null
+  }
+
+  async setPasswordByMail(mail: string, rawPassword: string): Promise<User | null> {
+    const user = await this.userRepository.getByMail(mail, true)
+    if (!user || user.isDelete) {
+      return null
+    }
+    const { password, salt } = encryptPassword(rawPassword)
+    const updated = await this.updatePasswordById(user.id, password, salt)
+    if (!updated) {
+      return null
+    }
+    return await this.userRepository.getById(user.id)
   }
 }

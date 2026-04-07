@@ -41,6 +41,20 @@ const GoogleLoginSchema = z.object({
 
 export class GoogleLoginDto extends createZodDto(GoogleLoginSchema) {}
 
+export const PasswordLoginSchema = z.object({
+  mail: z.string().email().describe('邮箱'),
+  password: z.string().min(6, { message: '密码至少 6 位' }).describe('密码'),
+})
+
+export class PasswordLoginDto extends createZodDto(PasswordLoginSchema, 'PasswordLoginDto') {}
+
+export const AdminPasswordOpSchema = z.object({
+  mail: z.string().email().describe('管理员邮箱'),
+  password: z.string().min(6, { message: '密码至少 6 位' }).describe('密码'),
+})
+
+export class AdminPasswordOpDto extends createZodDto(AdminPasswordOpSchema, 'AdminPasswordOpDto') {}
+
 const UserCancelSchema = z.object({
   code: z.string({ message: '验证码' }),
 })

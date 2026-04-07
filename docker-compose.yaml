@@ -297,6 +297,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-password}
       AI_URL: ${AI_URL:-http://aitoearn-ai:3010}
       JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
+      ADMIN_PASSWORD_TOKEN: ${ADMIN_PASSWORD_TOKEN:-}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-change-this-secret-token}
       ASSETS_CONFIG: ${SERVER_ASSETS_CONFIG}
       MAIL_HOST: ${MAIL_HOST:-smtp.resend.com}

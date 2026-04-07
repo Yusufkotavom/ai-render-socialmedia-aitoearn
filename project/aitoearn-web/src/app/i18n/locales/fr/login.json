@@ -30,5 +30,8 @@
   "termsOfService": "Conditions d'utilisation",
   "and": "et",
   "privacyPolicy": "Politique de confidentialité",
-  "newUserPromotion": "Les nouveaux utilisateurs bénéficient de 14 jours d'abonnement gratuit !"
+  "newUserPromotion": "Les nouveaux utilisateurs bénéficient de 14 jours d'abonnement gratuit !",
+  "passwordPlaceholder": "Enter your password",
+  "passwordRequired": "Please enter your password",
+  "loginWithPassword": "Sign in with password"
 }
