@@ -235,7 +235,7 @@ module.exports = {
     pollinations: {
       imageBaseUrl: POLLINATIONS_IMAGE_BASE_URL || 'https://gen.pollinations.ai/image',
       videoBaseUrl: POLLINATIONS_VIDEO_BASE_URL || 'https://gen.pollinations.ai/video',
-      appUrl: POLLINATIONS_APP_URL || 'https://api.piiblog.net',
+      appUrl: POLLINATIONS_APP_URL || 'https://api.bahtiyar.eu.org',
       secretKey: POLLINATIONS_SECRET_KEY || '',
       publishableKey: POLLINATIONS_PUBLISHABLE_KEY || '',
     },
