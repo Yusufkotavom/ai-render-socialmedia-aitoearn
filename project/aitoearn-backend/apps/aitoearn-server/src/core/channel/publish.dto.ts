@@ -165,3 +165,8 @@ export const UpdatePublishTaskSchema = z.object({
   }).optional(),
 })
 export class UpdatePublishTaskDto extends createZodDto(UpdatePublishTaskSchema) {}
+
+export const NowPubTaskBodySchema = z.object({
+  publishTime: z.coerce.date().optional(),
+})
+export class NowPubTaskBodyDto extends createZodDto(NowPubTaskBodySchema) {}

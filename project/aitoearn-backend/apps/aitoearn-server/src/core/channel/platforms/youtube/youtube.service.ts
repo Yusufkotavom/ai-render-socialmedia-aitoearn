@@ -951,6 +951,7 @@ export class YoutubeService extends PlatformBaseService {
     embeddable = false,
     selfDeclaredMadeForKids = false,
     contentLength?: number,
+    publishAt?: string,
   ) {
     const accessToken = await this.getUserAccessToken(accountId)
     if (!accessToken)
@@ -971,6 +972,7 @@ export class YoutubeService extends PlatformBaseService {
           selfDeclaredMadeForKids: boolean
           licence: string
           embeddable: boolean
+          publishAt?: string
         }
       } = {
         notifySubscribers,
@@ -988,9 +990,9 @@ export class YoutubeService extends PlatformBaseService {
         },
       }
 
-      // if (publishAt) {
-      //   requestBody.status.publishAt = publishAt
-      // }
+      if (publishAt) {
+        requestBody.status.publishAt = publishAt
+      }
 
       // 正确的 resumable upload 初始化
       const url = 'https://www.googleapis.com/upload/youtube/v3/videos'

@@ -38,9 +38,9 @@ export class VideoTaskStatusScheduler {
   ) { }
 
   /**
-   * 每30秒检查一次正在生成中的视频任务状态
+   * 每5分钟检查一次正在生成中的视频任务状态 (Free-Tier optimized)
    */
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   @Redlock(RedlockKey.VideoTaskStatusCheck, 600, { throwOnFailure: false })
   @WithLoggerContext()
   async processVideoTaskStatus() {

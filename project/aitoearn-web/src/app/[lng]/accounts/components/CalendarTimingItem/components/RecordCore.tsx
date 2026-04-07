@@ -242,6 +242,17 @@ const RecordCore = memo(
       return items
     }, [publishRecord])
 
+    const handleTriggerPublish = async (publishTime?: string) => {
+      setNowPubLoading(true)
+      try {
+        await nowPubTaskApi(publishRecord.id, publishTime)
+        getPubRecord()
+      }
+      finally {
+        setNowPubLoading(false)
+      }
+    }
+
     const handleCoverClick = (e: React.MouseEvent) => {
       e.stopPropagation()
       e.preventDefault()
@@ -556,24 +567,41 @@ const RecordCore = memo(
 
           {publishRecord.status !== PublishStatus.RELEASED
             && publishRecord.status !== PublishStatus.PUB_LOADING ? (
-                <Button
-                  data-testid="record-publish-now-btn"
-                  className={cn('cursor-pointer', isMobile && 'w-full')}
-                  disabled={nowPubLoading}
-                  onClick={async () => {
-                    setNowPubLoading(true)
-                    await nowPubTaskApi(publishRecord.id)
-                    getPubRecord()
-                    setNowPubLoading(false)
-                  }}
-                >
-                  {nowPubLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  {t('buttons.publishNow')}
-                </Button>
+                <div className={cn('grid gap-2', isMobile ? 'grid-cols-1 w-full' : 'grid-cols-2')}>
+                  <Button
+                    data-testid="record-publish-now-btn"
+                    className={cn('cursor-pointer', isMobile && 'w-full')}
+                    disabled={nowPubLoading}
+                    onClick={() => handleTriggerPublish()}
+                  >
+                    {nowPubLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="mr-2 h-4 w-4" />
+                    )}
+                    {t('buttons.publishNow')}
+                  </Button>
+                  <Button
+                    data-testid="record-publish-by-date-btn"
+                    className={cn('cursor-pointer', isMobile && 'w-full')}
+                    variant="outline"
+                    disabled={nowPubLoading}
+                    onClick={() => {
+                      const selectedTime = dayjs(publishRecord.publishTime)
+                      const publishTime = selectedTime.isAfter(dayjs())
+                        ? selectedTime.utc().format()
+                        : undefined
+                      return handleTriggerPublish(publishTime)
+                    }}
+                  >
+                    {nowPubLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Calendar className="mr-2 h-4 w-4" />
+                    )}
+                    {t('buttons.schedulePublish')}
+                  </Button>
+                </div>
               ) : null}
         </div>
       </div>

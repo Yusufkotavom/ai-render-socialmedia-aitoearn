@@ -37,6 +37,7 @@ export interface CreateMediaContainerRequest {
   media_type?: InstagramMediaType
   product_tags?: ProductTag[]
   share_to_feed?: boolean
+  publish_time?: string
   thumb_offset?: number
   upload_type?: string
   user_tags?: UserTag[]

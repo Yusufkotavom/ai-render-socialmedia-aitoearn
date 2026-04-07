@@ -589,7 +589,7 @@ export class PublishingService {
    * 立即发布任务
    * 将等待发布的任务立即加入队列执行
    */
-  async publishTaskImmediately(id: string) {
+  async publishTaskImmediately(id: string, publishTime?: Date) {
     const taskDoc = await this.getPublishTaskInfo(id)
     const taskInfo = taskDoc!
     if (!taskInfo) {
@@ -606,7 +606,12 @@ export class PublishingService {
       }
     }
 
-    await this.publishRecordService.updateById(id, { publishTime: new Date(), queued: true })
+    const targetPublishTime = publishTime && publishTime.getTime() > Date.now()
+      ? new Date(publishTime)
+      : new Date()
+
+    await this.publishRecordService.updateById(id, { publishTime: targetPublishTime, queued: true })
+    taskInfo.publishTime = targetPublishTime
     await this.enqueuePublishingTask(taskInfo)
   }
 

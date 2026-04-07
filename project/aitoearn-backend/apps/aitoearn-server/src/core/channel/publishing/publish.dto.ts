@@ -262,6 +262,11 @@ export const NowPubTaskSchema = z.object({
 })
 export class NowPubTaskDto extends createZodDto(NowPubTaskSchema) { }
 
+export const NowPubTaskBodySchema = z.object({
+  publishTime: z.coerce.date().optional(),
+})
+export class NowPubTaskBodyDto extends createZodDto(NowPubTaskBodySchema) { }
+
 export const PublishDayInfoListFiltersSchema = z.object({
   userId: z.string().optional(),
   time: z.tuple([

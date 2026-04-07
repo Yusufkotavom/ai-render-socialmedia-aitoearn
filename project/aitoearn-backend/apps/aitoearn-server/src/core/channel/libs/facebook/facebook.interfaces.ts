@@ -52,6 +52,7 @@ export interface PublishFeedPostRequest {
   message: string
   published: boolean
   link?: string
+  scheduled_publish_time?: number
 }
 
 export interface publishFeedPostResponse {
@@ -63,6 +64,7 @@ export interface PublishVideoPostRequest {
   title?: string
   crossposted_video_id: string
   published: boolean
+  scheduled_publish_time?: number
 }
 
 export interface publishVideoPostResponse {

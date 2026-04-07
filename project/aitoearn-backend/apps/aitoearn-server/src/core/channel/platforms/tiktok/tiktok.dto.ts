@@ -20,6 +20,7 @@ const PostInfoSchema = z.object({
   brand_content_toggle: z.boolean().optional(),
   brand_organic_toggle: z.boolean().optional(),
   video_cover_timestamp_ms: z.number().optional(),
+  schedule_publish_time: z.number().optional(),
 })
 export class PostInfoDto extends createZodDto(PostInfoSchema) {}
 

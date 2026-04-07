@@ -21,6 +21,7 @@ import {
   CreateScheduleRuleDto,
   CreatePublishDto,
   CreatePublishRecordDto,
+  NowPubTaskBodyDto,
   PublishDayInfoListFiltersDto,
   PubRecordListFilterDto,
   QueueOverviewQueryDto,
@@ -251,8 +252,12 @@ export class PublishController {
     summary: '立即发布任务',
   })
   @Post('nowPubTask/:id')
-  async nowPubTask(@GetToken() token: TokenInfo, @Param('id') id: string) {
-    return this.publishingService.publishTaskImmediately(id)
+  async nowPubTask(
+    @GetToken() token: TokenInfo,
+    @Param('id') id: string,
+    @Body() data: NowPubTaskBodyDto,
+  ) {
+    return this.publishingService.publishTaskImmediately(id, data?.publishTime)
   }
 
   @ApiDoc({

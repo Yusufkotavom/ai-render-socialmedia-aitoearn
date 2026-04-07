@@ -73,23 +73,7 @@ export class QueueMetricsService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    for (const name of Object.values(QueueName)) {
-      try {
-        const token = getQueueToken(name)
-        const queue = this.moduleRef.get<Queue>(token, { strict: false })
-        if (queue) {
-          this.queues.push({ name, queue })
-        }
-      }
-      catch {
-        this.logger.warn(`Queue ${name} not found in module context`)
-      }
-    }
-    this.logger.log(`Registered ${this.queues.length} queues for metrics collection`)
-
-    await this.calibrateJobCounts()
-    this.setupQueueEvents()
-    this.calibrationTimer = setInterval(() => this.calibrateJobCounts(), CALIBRATION_INTERVAL)
+    this.logger.log(`Skipping queue metrics collection to save Redis Free-Tier quota.`)
   }
 
   async onModuleDestroy() {
