@@ -10,7 +10,7 @@
 
 import type { IMobileCalendarHeaderProps } from './mobileCalendar.types'
 import dayjs from 'dayjs'
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Grid3X3 } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Grid3X3, List } from 'lucide-react'
 import { memo, useMemo, useState } from 'react'
 import { useTransClient } from '@/app/i18n/client'
 import { Button } from '@/components/ui/button'
@@ -148,13 +148,25 @@ const MobileCalendarHeader = memo<IMobileCalendarHeaderProps>(
               variant="ghost"
               size="icon"
               className={cn(
-                'h-8 w-8 rounded-l-none cursor-pointer',
+                'h-8 w-8 rounded-none cursor-pointer',
                 viewType === 'month' && 'bg-accent',
               )}
               onClick={() => onViewTypeChange('month')}
               title={t('mobileCalendar.monthView')}
             >
               <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'h-8 w-8 rounded-l-none cursor-pointer',
+                viewType === 'list' && 'bg-accent',
+              )}
+              onClick={() => onViewTypeChange('list')}
+              title={t('listModeTab')}
+            >
+              <List className="h-4 w-4" />
             </Button>
           </div>
 

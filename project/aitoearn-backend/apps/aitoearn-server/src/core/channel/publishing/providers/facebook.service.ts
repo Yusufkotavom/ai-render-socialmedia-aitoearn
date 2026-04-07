@@ -45,6 +45,14 @@ export class FacebookPublishService
     super()
   }
 
+  private resolveScheduledPublishTimestamp(publishTask: PublishRecord): number | undefined {
+    const publishTime = new Date(publishTask.publishTime).getTime()
+    if (Number.isNaN(publishTime) || publishTime <= Date.now()) {
+      return undefined
+    }
+    return Math.floor(publishTime / 1000)
+  }
+
   async uploadImage(accountId: string, imgUrl: string): Promise<string> {
     const imgBlob = await fileUrlToBlob(imgUrl)
     const uploadReq = await this.facebookService.uploadImage(
@@ -173,9 +181,11 @@ export class FacebookPublishService
     if (!publishTask.accountId) {
       throw PublishingException.nonRetryable('Feed Post requires an account ID')
     }
+    const scheduledPublishTime = this.resolveScheduledPublishTimestamp(publishTask)
     const feedPostReq: PublishFeedPostRequest = {
       message: this.generatePostMessage(publishTask),
-      published: true,
+      published: !scheduledPublishTime,
+      scheduled_publish_time: scheduledPublishTime,
     }
     const postRes = await this.facebookService.publishFeedPost(
       publishTask.accountId,
@@ -304,10 +314,12 @@ export class FacebookPublishService
       throw PublishingException.nonRetryable('Video requires an account ID')
     }
     const videoId = await this.uploadVideo(publishTask.accountId, publishTask.videoUrl || '')
+    const scheduledPublishTime = this.resolveScheduledPublishTimestamp(publishTask)
     const videoPostReq: PublishVideoPostRequest = {
       description: this.generatePostMessage(publishTask),
       crossposted_video_id: videoId,
-      published: true,
+      published: !scheduledPublishTime,
+      scheduled_publish_time: scheduledPublishTime,
     }
     const postRes = await this.facebookService.publishVideo(
       publishTask.accountId,
@@ -378,25 +390,29 @@ export class FacebookPublishService
     this.logger.log(`All media files processed for task ID: ${task.id}`)
     let publishRes: FacebookReelResponse | null = null
     if (task.option?.facebook?.content_category === 'reel') {
+      const scheduledPublishTime = this.resolveScheduledPublishTimestamp(task)
       publishRes = await this.facebookService.publishReel(
         task.accountId,
         {
           upload_phase: 'finish',
-          video_state: 'published',
+          video_state: scheduledPublishTime ? 'scheduled' : 'published',
           video_id: mediasStatus.medias[0].taskId,
           description: this.generatePostMessage(task),
+          scheduled_publish_time: scheduledPublishTime,
         },
       )
     }
 
     if (task.option?.facebook?.content_category === 'story') {
+      const scheduledPublishTime = this.resolveScheduledPublishTimestamp(task)
       publishRes = await this.facebookService.publishVideoStory(
         task.accountId,
         {
           upload_phase: 'finish',
-          video_state: 'published',
+          video_state: scheduledPublishTime ? 'scheduled' : 'published',
           video_id: mediasStatus.medias[0].taskId,
           description: this.generatePostMessage(task),
+          scheduled_publish_time: scheduledPublishTime,
         },
       )
     }

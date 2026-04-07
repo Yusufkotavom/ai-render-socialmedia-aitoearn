@@ -35,6 +35,14 @@ export class InstagramPublishService
     super()
   }
 
+  private resolveScheduledPublishTime(publishTask: PublishRecord): string | undefined {
+    const publishTime = new Date(publishTask.publishTime).getTime()
+    if (Number.isNaN(publishTime) || publishTime <= Date.now()) {
+      return undefined
+    }
+    return new Date(publishTime).toISOString()
+  }
+
   override async getMediaProcessingStatus(accountId: string, mediaId: string): Promise<string | void> {
     const mediaStatusInfo = await this.instagramService.getObjectInfo(accountId, mediaId, 'status')
     return mediaStatusInfo.status
@@ -70,6 +78,7 @@ export class InstagramPublishService
       media_type: mediaType,
       image_url: srcImgURL,
       caption: this.generatePostMessage(publishTask),
+      publish_time: this.resolveScheduledPublishTime(publishTask),
     }
     if (isCarouselItem) {
       createContainerReq.is_carousel_item = true
@@ -107,6 +116,7 @@ export class InstagramPublishService
       video_url: publishTask.videoUrl,
       media_type: InstagramMediaType.REELS,
       caption: this.generatePostMessage(publishTask),
+      publish_time: this.resolveScheduledPublishTime(publishTask),
     }
     const initUploadRes = await this.instagramService.createMediaContainer(
       publishTask.accountId,
@@ -131,6 +141,7 @@ export class InstagramPublishService
       video_url: publishTask.videoUrl,
       media_type: InstagramMediaType.STORIES,
       caption: this.generatePostMessage(publishTask),
+      publish_time: this.resolveScheduledPublishTime(publishTask),
     }
     const initUploadRes = await this.instagramService.createMediaContainer(
       publishTask.accountId,
@@ -154,6 +165,7 @@ export class InstagramPublishService
       media_type: InstagramMediaType.STORIES,
       image_url: publishTask.imgUrlList[0],
       caption: this.generatePostMessage(publishTask),
+      publish_time: this.resolveScheduledPublishTime(publishTask),
     }
     const initUploadRes = await this.instagramService.createMediaContainer(
       publishTask.accountId,
@@ -196,6 +208,7 @@ export class InstagramPublishService
         media_type: containerTypes,
         children: containerIdList,
         caption: this.generatePostMessage(task),
+        publish_time: this.resolveScheduledPublishTime(task),
       }
       const postContainer = await this.instagramService.createMediaContainer(
         task.accountId,

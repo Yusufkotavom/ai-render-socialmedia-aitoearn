@@ -85,10 +85,11 @@ export function deletePlatWorkApi(accountId: string, dataId: string) {
 }
 
 // 立即发布任务
-export function nowPubTaskApi(id: string) {
+export function nowPubTaskApi(id: string, publishTime?: string) {
   return request({
     url: `plat/publish/nowPubTask/${id}`,
     method: 'POST',
+    data: publishTime ? { publishTime } : undefined,
   })
 }
 

@@ -11,6 +11,7 @@ interface TiktokBasePostInfo {
   brand_content_toggle?: boolean
   brand_organic_toggle?: boolean
   video_cover_timestamp_ms?: number
+  schedule_publish_time?: number
 }
 
 export interface TiktokPostOptions {

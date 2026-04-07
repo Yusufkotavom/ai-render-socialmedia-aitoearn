@@ -56,6 +56,12 @@ export class YoutubePubService extends PublishService {
       publishTask.videoUrl = this.assetsService.buildUrl(publishTask.videoUrl)
       const contentLength = await getFileSizeFromUrl(publishTask.videoUrl)
       const description = this.generatePostMessage(publishTask)
+      const schedulePublishTime = new Date(publishTask.publishTime).getTime() > Date.now()
+        ? new Date(publishTask.publishTime).toISOString()
+        : undefined
+      const privacyStatus = schedulePublishTime
+        ? 'private'
+        : (publishTask?.option?.youtube?.privacyStatus || 'public')
       const videoUpToken = await this.youtubeService.initVideoUpload(
         publishTask.accountId,
         publishTask.title || '',
@@ -63,11 +69,12 @@ export class YoutubePubService extends PublishService {
         publishTask.topics,
         publishTask?.option?.youtube?.license || 'youtube',
         publishTask?.option?.youtube?.categoryId || '22',
-        publishTask?.option?.youtube?.privacyStatus || 'public',
+        privacyStatus,
         publishTask?.option?.youtube?.notifySubscribers || false,
         publishTask?.option?.youtube?.embeddable || false,
         publishTask?.option?.youtube?.selfDeclaredMadeForKids || false,
         contentLength,
+        schedulePublishTime,
       )
       if (!videoUpToken) {
         this.logger.error('error initializing video upload')

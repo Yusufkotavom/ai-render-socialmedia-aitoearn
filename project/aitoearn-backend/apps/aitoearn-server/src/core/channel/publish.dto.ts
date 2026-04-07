@@ -165,3 +165,32 @@ export const UpdatePublishTaskSchema = z.object({
   }).optional(),
 })
 export class UpdatePublishTaskDto extends createZodDto(UpdatePublishTaskSchema) {}
+
+export const NowPubTaskBodySchema = z.object({
+  publishTime: z.coerce.date().optional(),
+})
+export class NowPubTaskBodyDto extends createZodDto(NowPubTaskBodySchema) {}
+
+const BulkPublishIdsSchema = z.array(z.string().min(1)).min(1).max(500)
+
+export const BulkPublishNowSchema = z.object({
+  ids: BulkPublishIdsSchema,
+  publishTime: z.coerce.date().optional(),
+  idempotencyKey: z.string().min(1).max(120).optional(),
+})
+export class BulkPublishNowDto extends createZodDto(BulkPublishNowSchema) {}
+
+export const BulkDeleteQueuedSchema = z.object({
+  ids: BulkPublishIdsSchema,
+  idempotencyKey: z.string().min(1).max(120).optional(),
+})
+export class BulkDeleteQueuedDto extends createZodDto(BulkDeleteQueuedSchema) {}
+
+export const BulkUpdateTimeSchema = z.object({
+  updates: z.array(z.object({
+    id: z.string().min(1),
+    publishTime: z.coerce.date(),
+  })).min(1).max(500),
+  idempotencyKey: z.string().min(1).max(120).optional(),
+})
+export class BulkUpdateTimeDto extends createZodDto(BulkUpdateTimeSchema) {}

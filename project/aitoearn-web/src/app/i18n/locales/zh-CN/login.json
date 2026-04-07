@@ -30,5 +30,8 @@
   "termsOfService": "服务条款",
   "and": "和",
   "privacyPolicy": "隐私政策",
-  "newUserPromotion": "新用户登录就送14天会员，免费用！"
+  "newUserPromotion": "新用户登录就送14天会员，免费用！",
+  "passwordPlaceholder": "Enter your password",
+  "passwordRequired": "Please enter your password",
+  "loginWithPassword": "Sign in with password"
 }

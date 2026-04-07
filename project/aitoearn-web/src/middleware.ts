@@ -98,6 +98,14 @@ export function middleware(req: NextRequest) {
     )
   }
 
+  // Guard bad localized route like /en/undefined -> send users to accounts page.
+  const pathParts = req.nextUrl.pathname.split('/').filter(Boolean)
+  const pathLang = pathParts[0]
+  const firstSegment = pathParts[1]
+  if (pathLang && languages.includes(pathLang) && firstSegment === 'undefined') {
+    return NextResponse.redirect(new URL(`/${pathLang}/accounts${req.nextUrl.search}`, req.url))
+  }
+
   if (req.headers.has('referer')) {
     const refererUrl = new URL(req.headers.get('referer') || '')
     const lngInReferer = languages.find(l => refererUrl.pathname.startsWith(`/${l}`))

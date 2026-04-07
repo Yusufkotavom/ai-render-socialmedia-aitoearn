@@ -15,7 +15,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { googleLoginApi } from '@/api/apiReq'
-import { emailCodeLoginApi, sendEmailCodeApi } from '@/api/auth'
+import { emailCodeLoginApi, emailPasswordLoginApi, sendEmailCodeApi } from '@/api/auth'
 import { useTransClient } from '@/app/i18n/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,6 +46,8 @@ export function EmailLoginForm({ onLoginSuccess, redirectUrl, inviteCode: invite
   const { t, i18n } = useTransClient('login')
   const { countdown, isCounting, start: startCountdown } = useCountdown()
   const [sendingCode, setSendingCode] = useState(false)
+  const [password, setPassword] = useState('')
+  const [passwordLoginLoading, setPasswordLoginLoading] = useState(false)
   const googleContainerRef = useRef<HTMLDivElement>(null)
   const [googleBtnWidth, setGoogleBtnWidth] = useState(0)
 
@@ -134,6 +136,49 @@ export function EmailLoginForm({ onLoginSuccess, redirectUrl, inviteCode: invite
     }
   }
 
+  /** 邮箱密码登录 */
+  const handlePasswordLogin = async () => {
+    const email = form.getValues('email')
+    const emailValid = await form.trigger('email')
+    if (!emailValid) {
+      return
+    }
+    if (!password) {
+      toast.error(t('passwordRequired'))
+      return
+    }
+    setPasswordLoginLoading(true)
+    try {
+      const res = await emailPasswordLoginApi({ mail: email, password })
+      if (!res) {
+        toast.error(t('loginFailed'))
+        return
+      }
+      if (res.code === 0 && res.data.token) {
+        setToken(res.data.token)
+        if (res.data.userInfo) {
+          setUserInfo(res.data.userInfo)
+        }
+        toast.success(t('loginSuccess'))
+        if (onLoginSuccess) {
+          onLoginSuccess()
+        }
+        else {
+          router.push(redirect || '/')
+        }
+      }
+      else {
+        toast.error(res.message || t('loginFailed'))
+      }
+    }
+    catch {
+      toast.error(t('loginError'))
+    }
+    finally {
+      setPasswordLoginLoading(false)
+    }
+  }
+
   /** Google 登录成功 */
   const handleGoogleSuccess = async (credentialResponse: any) => {
     try {
@@ -209,6 +254,29 @@ export function EmailLoginForm({ onLoginSuccess, redirectUrl, inviteCode: invite
               {form.formState.errors.email.message}
             </p>
           )}
+        </div>
+
+        <div className="space-y-2">
+          <Input
+            type="password"
+            placeholder={t('passwordPlaceholder')}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="h-12 rounded-xl border-input bg-background px-4 text-base placeholder:text-muted-foreground/70 focus:border-ring focus:ring-0"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={passwordLoginLoading}
+            onClick={handlePasswordLogin}
+            className="h-12 w-full cursor-pointer rounded-xl text-base font-medium"
+          >
+            {passwordLoginLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              t('loginWithPassword')
+            )}
+          </Button>
         </div>
 
         <div className="flex gap-2">

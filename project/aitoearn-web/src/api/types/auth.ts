@@ -16,6 +16,12 @@ export interface EmailCodeLoginParams {
   inviteCode?: string
 }
 
+/** 邮箱密码登录参数 */
+export interface EmailPasswordLoginParams {
+  mail: string
+  password: string
+}
+
 /** 发送手机验证码参数 */
 export interface SendPhoneCodeParams {
   phone: string

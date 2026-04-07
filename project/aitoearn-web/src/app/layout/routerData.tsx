@@ -77,6 +77,12 @@ export const routerData: IRouterDataItem[] = [
     path: '/content-scheduler',
     icon: <CalendarClock size={20} />,
   },
+  {
+    name: 'Bulk Publish Runner',
+    translationKey: 'bulkPublishRunner',
+    path: '/bulk-publish',
+    icon: <CalendarClock size={20} />,
+  },
   ...(AI_FEATURE_ENABLED
     ? [
         {

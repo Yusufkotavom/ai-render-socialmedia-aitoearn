@@ -5,6 +5,7 @@
 import type {
   CodeLoginResponse,
   EmailCodeLoginParams,
+  EmailPasswordLoginParams,
   PhoneCodeLoginParams,
   SendEmailCodeParams,
   SendPhoneCodeParams,
@@ -19,6 +20,11 @@ export function sendEmailCodeApi(data: SendEmailCodeParams) {
 /** 邮箱验证码登录 */
 export function emailCodeLoginApi(data: EmailCodeLoginParams) {
   return http.post<CodeLoginResponse>('login/mail/verify', data)
+}
+
+/** 邮箱密码登录 */
+export function emailPasswordLoginApi(data: EmailPasswordLoginParams) {
+  return http.post<CodeLoginResponse>('login/password', data)
 }
 
 /** 发送手机验证码 */

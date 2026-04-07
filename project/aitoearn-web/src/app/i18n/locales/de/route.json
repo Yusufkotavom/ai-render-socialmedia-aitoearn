@@ -20,5 +20,6 @@
   "taskSquare": "Goldrausch-Markt",
   "contentManager": "Content Manager",
   "contentScheduler": "Content Scheduler",
-  "playwrightManager": "Playwright Manager"
+  "playwrightManager": "Playwright Manager",
+  "bulkPublishRunner": "Bulk Publish Runner"
 }

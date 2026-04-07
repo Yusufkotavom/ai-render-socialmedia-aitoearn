@@ -26,5 +26,6 @@
   "contentManager": "Content Manager",
   "contentScheduler": "Content Scheduler",
   "playwrightManager": "Playwright Manager",
-  "playwrightBatch": "Playwright Batch"
+  "playwrightBatch": "Playwright Batch",
+  "bulkPublishRunner": "Bulk Publish Runner"
 }

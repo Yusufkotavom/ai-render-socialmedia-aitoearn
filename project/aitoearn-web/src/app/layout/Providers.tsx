@@ -20,7 +20,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { useUserStore } from '@/store/user'
 import { isPublicPage } from '@/utils/route'
 
-export function Providers({ children, lng, autoLoginToken }: { children: React.ReactNode, lng: string, autoLoginToken?: string }) {
+export function Providers({ children, lng }: { children: React.ReactNode, lng: string }) {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1094109734611-flskoscgp609mecqk9ablvc6i3205vqk.apps.googleusercontent.com'
   const pathname = usePathname()
   const router = useRouter()
@@ -40,12 +40,8 @@ export function Providers({ children, lng, autoLoginToken }: { children: React.R
   useEffect(() => {
     if (!_hasHydrated)
       return
-    // 自动登录：无 token 时使用环境变量注入的 token
-    if (!useUserStore.getState().token && autoLoginToken) {
-      useUserStore.getState().setToken(autoLoginToken)
-    }
     useUserStore.getState().appInit()
-  }, [_hasHydrated, autoLoginToken])
+  }, [_hasHydrated])
 
   useEffect(() => {
     useUserStore.getState().setLang(lng)

@@ -21,9 +21,9 @@ export class AideoTaskStatusScheduler {
   ) { }
 
   /**
-   * 每30秒检查一次正在处理中的 Aideo 任务状态
+   * 每5分钟检查一次正在处理中的 Aideo 任务状态 (Free-Tier optimized)
    */
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   @Redlock(RedlockKey.AideoTaskStatusCheck, 60, { throwOnFailure: false })
   @WithLoggerContext()
   async processAideoTaskStatus() {

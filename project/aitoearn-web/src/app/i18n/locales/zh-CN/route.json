@@ -27,5 +27,6 @@
   "contentManager": "Content Manager",
   "contentScheduler": "Content Scheduler",
   "playwrightManager": "Playwright 管理",
-  "playwrightBatch": "Playwright 批量生成"
+  "playwrightBatch": "Playwright 批量生成",
+  "bulkPublishRunner": "Bulk Publish Runner"
 }

@@ -10,7 +10,7 @@ export class ProcessScheduleRuleScheduler {
     private readonly scheduleRuleService: ScheduleRuleService,
   ) { }
 
-  @Cron(CronExpression.EVERY_MINUTE, { waitForCompletion: true })
+  @Cron(CronExpression.EVERY_10_MINUTES, { waitForCompletion: true })
   async processRules() {
     try {
       const processed = await this.scheduleRuleService.processDueRules(100)

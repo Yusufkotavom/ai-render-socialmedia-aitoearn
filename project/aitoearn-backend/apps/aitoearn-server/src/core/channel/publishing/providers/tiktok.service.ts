@@ -24,6 +24,14 @@ export class TiktokPubService extends PublishService {
     super()
   }
 
+  private resolveScheduledPublishTimestamp(publishTask: PublishRecord): number | undefined {
+    const publishTime = new Date(publishTask.publishTime).getTime()
+    if (Number.isNaN(publishTime) || publishTime <= Date.now()) {
+      return undefined
+    }
+    return Math.floor(publishTime / 1000)
+  }
+
   async publishVideoViaUpload(publishTask: PublishRecord): Promise<PublishingTaskResult> {
     const { accountId, videoUrl } = publishTask
     if (!accountId) {
@@ -56,6 +64,7 @@ export class TiktokPubService extends PublishService {
       disable_comment: publishTask.option?.tiktok?.disable_comment || false,
       disable_duet: publishTask.option?.tiktok?.disable_duet || false,
       disable_stitch: publishTask.option?.tiktok?.disable_stitch || false,
+      schedule_publish_time: this.resolveScheduledPublishTimestamp(publishTask),
     }
 
     const sourceInfo: VideoFileUploadSourceDto = {
@@ -117,6 +126,7 @@ export class TiktokPubService extends PublishService {
       privacy_level: privacyLevel,
       brand_content_toggle: publishTask.option?.tiktok?.brand_content_toggle || false,
       brand_organic_toggle: publishTask.option?.tiktok?.brand_organic_toggle || false,
+      schedule_publish_time: this.resolveScheduledPublishTimestamp(publishTask),
     }
 
     const sourceInfo: VideoPullUrlSourceDto = {

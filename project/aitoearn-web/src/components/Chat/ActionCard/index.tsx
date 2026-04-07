@@ -72,9 +72,12 @@ interface IActionConfig {
 export function ActionCard({ action, className }: IActionCardProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { lng } = useParams()
+  const params = useParams()
   const { t } = useTransClient('chat')
   const token = useUserStore(state => state.token)
+  const lngParam = Array.isArray(params?.lng) ? params.lng[0] : params?.lng
+  const pathnameLang = pathname?.split('/').filter(Boolean)[0]
+  const lng = (lngParam || pathnameLang || 'en') as string
 
   // Agent store 方法
   const { continueTask } = useAgentStore()
@@ -261,7 +264,7 @@ export function ActionCard({ action, className }: IActionCardProps) {
                 medias: action.medias,
                 tags: action.tags,
               },
-              { router, lng: lng as string, t },
+              { router, lng, t },
             )
             return
           }

@@ -3,7 +3,7 @@
  *
  * 功能描述: 移动端日历主组件
  * - 管理 selectedDate（当前选中日期）
- * - 管理 viewType（'week' | 'month'）
+ * - 管理 viewType（'week' | 'month' | 'list'）
  * - 组合各子组件
  * - 接收 onClickPub 回调，传递给子组件
  */
@@ -17,6 +17,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { getMonthDateRange, getWeekDateRange } from '@/app/[lng]/accounts/components/CalendarTiming/calendarTiming.utils'
 import { useCalendarTiming } from '@/app/[lng]/accounts/components/CalendarTiming/useCalendarTiming'
+import PCDayListView from '../PCDayListView'
 import MobileCalendarHeader from './MobileCalendarHeader'
 import MobileDayRecords from './MobileDayRecords'
 import MobileMonthView from './MobileMonthView'
@@ -66,6 +67,14 @@ const MobileCalendar = memo<IMobileCalendarProps>(({ onClickPub }) => {
         : getMonthDateRange(currentDate),
     })
   }, [currentDate])
+
+  useEffect(() => {
+    getPubRecord({
+      dateRange: viewType === 'week'
+        ? getWeekDateRange(currentDate)
+        : getMonthDateRange(currentDate),
+    })
+  }, [viewType])
 
   // 处理日期选择
   const handleDateSelect = useCallback(
@@ -133,34 +142,46 @@ const MobileCalendar = memo<IMobileCalendarProps>(({ onClickPub }) => {
         onToday={handleToday}
       />
 
-      {/* 日历视图 */}
-      {viewType === 'week' ? (
-        <MobileWeekView
-          currentDate={currentDate}
-          selectedDate={selectedDate}
-          onDateSelect={handleDateSelect}
-          onWeekChange={handleWeekChange}
-          recordMap={recordMap}
-        />
-      ) : (
-        <MobileMonthView
-          currentDate={currentDate}
-          selectedDate={selectedDate}
-          onDateSelect={handleDateSelect}
-          recordMap={recordMap}
-        />
-      )}
+      {viewType === 'list'
+        ? (
+            <div className="flex-1 overflow-hidden">
+              <PCDayListView recordMap={recordMap} loading={listLoading} onClickPub={onClickPub} />
+            </div>
+          )
+        : (
+            <>
+              {/* 日历视图 */}
+              {viewType === 'week'
+                ? (
+                    <MobileWeekView
+                      currentDate={currentDate}
+                      selectedDate={selectedDate}
+                      onDateSelect={handleDateSelect}
+                      onWeekChange={handleWeekChange}
+                      recordMap={recordMap}
+                    />
+                  )
+                : (
+                    <MobileMonthView
+                      currentDate={currentDate}
+                      selectedDate={selectedDate}
+                      onDateSelect={handleDateSelect}
+                      recordMap={recordMap}
+                    />
+                  )}
 
-      {/* 分隔线 */}
-      <div className="border-b" />
+              {/* 分隔线 */}
+              <div className="border-b" />
 
-      {/* 任务列表 */}
-      <MobileDayRecords
-        selectedDate={selectedDate}
-        records={selectedRecords}
-        loading={listLoading}
-        onClickPub={onClickPub}
-      />
+              {/* 任务列表 */}
+              <MobileDayRecords
+                selectedDate={selectedDate}
+                records={selectedRecords}
+                loading={listLoading}
+                onClickPub={onClickPub}
+              />
+            </>
+          )}
     </div>
   )
 })
