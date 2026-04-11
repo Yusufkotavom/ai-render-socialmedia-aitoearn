@@ -113,7 +113,7 @@ const YouTubeParams = memo(
       const categoryOptions = useMemo(() => {
         return youTubeCategories.map(item => ({
           value: item.id,
-          label: item.snippet.title,
+          label: item.snippet?.title || item.id,
         }))
       }, [youTubeCategories])
 

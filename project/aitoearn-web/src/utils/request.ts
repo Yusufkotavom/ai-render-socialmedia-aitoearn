@@ -78,20 +78,20 @@ export async function request<T>(params: RequestParamsWithSilent) {
       return null
     }
 
-    // if (data.code !== 0) {
-    //   if (!params.silent && typeof window !== 'undefined') {
-    //     notification.warning({
-    //       content: `${data.message || networkBusy} ${contactText}`,
-    //       key: 'apiErrorMessage',
-    //       duration: 3,
-    //     })
-    //   }
-    //   // 如果是 silent 模式，返回完整响应以便调用方处理
-    //   if (params.silent) {
-    //     return data
-    //   }
-    //   return null
-    // }
+    if (data.code !== 0) {
+      if (!params.silent && typeof window !== 'undefined') {
+        notification.warning({
+          content: `${data.message || networkBusy} ${contactText}`,
+          key: 'apiErrorMessage',
+          duration: 3,
+        })
+      }
+      // 如果是 silent 模式，返回完整响应以便调用方处理
+      if (params.silent) {
+        return data
+      }
+      return null
+    }
 
     return data
   }

@@ -89,7 +89,7 @@ export function nowPubTaskApi(id: string, publishTime?: string) {
   return request({
     url: `plat/publish/nowPubTask/${id}`,
     method: 'POST',
-    data: publishTime ? { publishTime } : undefined,
+    data: publishTime ? { publishTime } : {},
   })
 }
 
