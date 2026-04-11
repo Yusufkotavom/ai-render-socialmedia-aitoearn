@@ -82,13 +82,15 @@ services:
     networks:
       - aitoearn-network
     entrypoint: >
-      /bin/sh -c " mc alias set rustfs http://rustfs.local:9000 ${RUSTFS_ACCESS_KEY:-rustfsadmin} ${RUSTFS_SECRET_KEY:-rustfsadmin}; mc mb rustfs/${RUSTFS_BUCKET:-aitoearn} --ignore-existing; mc anonymous set download rustfs/${RUSTFS_BUCKET:-aitoearn}; exit 0; "
+      /bin/sh -c "
+      mc alias set rustfs http://rustfs.local:9000 ${RUSTFS_ACCESS_KEY:-rustfsadmin} ${RUSTFS_SECRET_KEY:-rustfsadmin};
+      mc mb rustfs/${RUSTFS_BUCKET:-aitoearn} --ignore-existing;
+      mc anonymous set download rustfs/${RUSTFS_BUCKET:-aitoearn};
+      exit 0;
+      "
 
   google-flow-playwright-worker:
-    image: aitoearn/google-flow-playwright-worker:local
-    build:
-      context: ./project/aitoearn-backend/apps/google-flow-playwright-worker
-      dockerfile: Dockerfile
+    image: yusufkotavom/google-flow-playwright-worker:local
     container_name: google-flow-playwright-worker
     restart: unless-stopped
     shm_size: "1gb"
@@ -133,10 +135,7 @@ services:
       start_period: 30s
 
   google-flow-remote-browser:
-    image: aitoearn/google-flow-remote-browser:local
-    build:
-      context: ./project/aitoearn-backend/apps/google-flow-remote-browser
-      dockerfile: Dockerfile
+    image: yusufkotavom/google-flow-remote-browser:local
     container_name: google-flow-remote-browser
     restart: unless-stopped
     shm_size: "1gb"
@@ -182,10 +181,7 @@ services:
       - aitoearn-network
 
   aitoearn-ai:
-    image: aitoearn/aitoearn-ai:local
-    build:
-      context: ./project/aitoearn-backend
-      dockerfile: apps/aitoearn-ai/Dockerfile
+    image: yusufkotavom/aitoearn-ai:local
     container_name: aitoearn-ai
     restart: unless-stopped
     depends_on:
@@ -256,7 +252,6 @@ services:
       GOOGLE_FLOW_BROWSER_LOGIN_OPEN_PATH: ${GOOGLE_FLOW_BROWSER_LOGIN_OPEN_PATH:-/v1/profiles/{profileId}/login/open}
       GOOGLE_FLOW_BROWSER_LOGIN_CREDENTIALS_PATH: ${GOOGLE_FLOW_BROWSER_LOGIN_CREDENTIALS_PATH:-/v1/profiles/{profileId}/login/credentials}
       PLAYWRIGHT_CREDENTIALS_SECRET: ${PLAYWRIGHT_CREDENTIALS_SECRET:-}
-
     healthcheck:
       test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3010/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })" ]
       interval: 30s
@@ -265,10 +260,7 @@ services:
       start_period: 60s
 
   aitoearn-server:
-    image: aitoearn/aitoearn-server:local
-    build:
-      context: ./project/aitoearn-backend
-      dockerfile: apps/aitoearn-server/Dockerfile
+    image: yusufkotavom/aitoearn-server:local
     container_name: aitoearn-server
     restart: unless-stopped
     depends_on:
@@ -343,7 +335,6 @@ services:
       RELAY_SERVER_URL: ${RELAY_SERVER_URL:-https://${PUBLISHER_DOMAIN:-aitoearn.ai}/api}
       RELAY_API_KEY: ${RELAY_API_KEY:-}
       RELAY_CALLBACK_URL: ${RELAY_CALLBACK_URL:-https://${APP_DOMAIN:-api.piiblog.net}/api/plat/relay-callback}
-
     healthcheck:
       test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })" ]
       interval: 30s
@@ -352,10 +343,7 @@ services:
       start_period: 60s
 
   aitoearn-web:
-    image: aitoearn/aitoearn-web:local
-    build:
-      context: ./project/aitoearn-web
-      dockerfile: Dockerfile
+    image: yusufkotavom/aitoearn-web:local
     container_name: aitoearn-web
     restart: unless-stopped
     depends_on:
