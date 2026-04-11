@@ -175,7 +175,10 @@
       "placeholder": "Laissez vide pour utiliser le défaut",
       "clearAll": "Effacer tous les prompts personnalisés",
       "clearSuccess": "Tous les prompts personnalisés ont été effacés"
-    }
+    },
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... (optional)",
+    "gatewayApiKeyHint": "Optional. Used for text requests through AI Gateway."
   },
   "upload": {
     "finishingUp": "Finalisation...",

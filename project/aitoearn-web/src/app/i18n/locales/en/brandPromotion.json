@@ -325,14 +325,14 @@
     "metadataAiSettingsTitle": "AI Metadata Generation Settings",
     "metadataProviderLabel": "Provider",
     "metadataModelLabel": "Model",
-    "metadataModelPlaceholder": "Enter model name (default: Groq)",
+    "metadataModelPlaceholder": "Enter model name (default: openai/gpt-5.4)",
     "metadataApplyStrategyLabel": "Apply Strategy",
     "metadataApplyReplaceEmpty": "Fill Empty Fields Only",
     "metadataApplyReplaceAll": "Replace All Fields",
     "metadataPromptTemplateLabel": "Prompt Template",
     "metadataPromptTemplatePlaceholder": "Edit prompt template. You can use {{title}}, {{description}}, {{tags}}, {{platforms}}.",
     "metadataResetPrompt": "Reset Prompt",
-    "apiKeyLocationHint": "API keys are read from server environment variables (GROQ_API_KEY / GEMINI_API_KEY).",
+    "apiKeyLocationHint": "By default uses server-configured AI Gateway key. You can also provide a custom gateway key below.",
     "metadataGenerateSuccess": "Metadata generated successfully",
     "metadataGenerateNoChanges": "Metadata generated, but no fields changed (Fill Empty Fields Only).",
     "metadataGenerateFallbackUsed": "AI provider failed. Showing local fallback metadata.",
@@ -340,7 +340,9 @@
     "instagramImageAspectRatio": "Instagram image aspect ratio must be between 4:5 and 1.91:1",
     "instagramVideoAspectRatio": "Instagram video aspect ratio must be between 9:16 and 4:5",
     "facebookImageAspectRatio": "Facebook image aspect ratio must be between 4:5 and 1.91:1",
-    "facebookVideoAspectRatio": "Facebook video aspect ratio must be between 9:16 and 4:5"
+    "facebookVideoAspectRatio": "Facebook video aspect ratio must be between 9:16 and 4:5",
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... or custom key"
   },
   "planTab": {
     "more": "More",

@@ -233,9 +233,10 @@ export function getLogs(params?: {
 
 // AI聊天接口 - 支持流式和非流式响应
 export async function aiChatStream(data: {
-  messages: Array<{ role: string, content: string }>
+  messages: Array<{ role: string, content: string | Array<any> }>
   stream?: boolean
   model?: string
+  gatewayApiKey?: string
   temperature?: number
   presence_penalty?: number
   frequency_penalty?: number
@@ -256,7 +257,7 @@ export async function aiChatStream(data: {
     },
     body: JSON.stringify({
       stream: false, // 使用非流式响应
-      model: 'gpt-5.1-all',
+      model: 'openai/gpt-5.4',
       temperature: 1,
       presence_penalty: 0,
       frequency_penalty: 0,

@@ -175,7 +175,10 @@
       "placeholder": "기본값을 사용하려면 비워두세요",
       "clearAll": "모든 사용자 정의 프롬프트 지우기",
       "clearSuccess": "모든 사용자 정의 프롬프트가 지워졌습니다"
-    }
+    },
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... (optional)",
+    "gatewayApiKeyHint": "Optional. Used for text requests through AI Gateway."
   },
   "upload": {
     "finishingUp": "마무리 중...",

@@ -185,6 +185,9 @@
     "save": "Save",
     "saving": "Saving...",
     "saveSuccess": "Saved successfully",
-    "saveFailed": "Failed to save"
+    "saveFailed": "Failed to save",
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... (optional)",
+    "gatewayApiKeyHint": "Optional. If set, this key will be used for AI Gateway text requests."
   }
 }

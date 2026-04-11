@@ -47,5 +47,9 @@
   },
   "publishRecord": {
     "untitled": "제목 없음"
+  },
+  "createMaterial": {
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... or custom key"
   }
 }

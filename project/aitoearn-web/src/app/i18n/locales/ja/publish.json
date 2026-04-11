@@ -175,7 +175,10 @@
       "placeholder": "空のままにするとデフォルトを使用",
       "clearAll": "すべてのカスタムプロンプトをクリア",
       "clearSuccess": "すべてのカスタムプロンプトをクリアしました"
-    }
+    },
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... (optional)",
+    "gatewayApiKeyHint": "Optional. Used for text requests through AI Gateway."
   },
   "upload": {
     "finishingUp": "完了処理中...",

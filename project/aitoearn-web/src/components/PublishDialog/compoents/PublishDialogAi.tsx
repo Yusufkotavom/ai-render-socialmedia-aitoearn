@@ -352,8 +352,9 @@ const PublishDialogAi = memo(
       // Chat model state (for shorten/expand/polish/translate/hashtags)
       const [selectedChatModel, setSelectedChatModel] = useState(() => {
         const savedModel = localStorage.getItem('ai_chat_model')
-        return savedModel || 'gpt-5.1-all'
+        return savedModel || 'openai/gpt-5.4'
       })
+      const [gatewayApiKey, setGatewayApiKey] = useState(() => localStorage.getItem('ai_gateway_api_key') || '')
 
       // Image generation model state
       const [selectedImageModel, setSelectedImageModel] = useState(() => {
@@ -416,7 +417,7 @@ const PublishDialogAi = memo(
           const chatModelExists = chatModels.find((m: any) => m.name === selectedChatModel)
           if (!chatModelExists) {
             // Try to find default model
-            const defaultModel = chatModels.find((m: any) => m.name === 'gpt-5.1-all')
+            const defaultModel = chatModels.find((m: any) => m.name === 'openai/gpt-5.4')
             if (defaultModel) {
               setSelectedChatModel(defaultModel.name)
               localStorage.setItem('ai_chat_model', defaultModel.name)
@@ -972,10 +973,12 @@ const PublishDialogAi = memo(
               = action === 'imageToImage'
                 ? selectedImageModel
                 : selectedChatModel
+            const normalizedGatewayApiKey = gatewayApiKey.trim() || undefined
 
             const response = await aiChatStream({
               messages: apiMessages as any,
               model: modelToUse,
+              gatewayApiKey: normalizedGatewayApiKey,
             })
 
             // Check response status
@@ -1827,6 +1830,28 @@ const PublishDialogAi = memo(
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="mb-4">
+              <div className="mb-2 font-bold flex items-center">
+                <Settings className="h-4 w-4 mr-2" />
+                {t('aiFeatures.gatewayApiKeyLabel' as any)}
+              </div>
+              <input
+                value={gatewayApiKey}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setGatewayApiKey(next)
+                  localStorage.setItem('ai_gateway_api_key', next)
+                }}
+                placeholder={t('aiFeatures.gatewayApiKeyPlaceholder' as any)}
+                type="password"
+                autoComplete="off"
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <div className="mt-1 text-xs text-muted-foreground">
+                {t('aiFeatures.gatewayApiKeyHint' as any)}
+              </div>
             </div>
 
             <div className="mb-4 border rounded-md p-3 text-sm">

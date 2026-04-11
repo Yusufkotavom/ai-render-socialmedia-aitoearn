@@ -176,6 +176,9 @@
     "save": "保存",
     "saving": "保存中...",
     "saveSuccess": "保存しました",
-    "saveFailed": "保存に失敗しました"
+    "saveFailed": "保存に失敗しました",
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... (optional)",
+    "gatewayApiKeyHint": "Optional. If set, this key will be used for AI Gateway text requests."
   }
 }

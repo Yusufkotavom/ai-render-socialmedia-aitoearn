@@ -1,5 +1,5 @@
 import { AIMessage, BaseMessage } from '@langchain/core/messages'
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
+import { ChatOpenAI } from '@langchain/openai'
 import { MultiServerMCPClient } from '@langchain/mcp-adapters'
 import { Injectable, Logger } from '@nestjs/common'
 import { AccountType, AppException, CreditsType, ResponseCode, UserType } from '@yikart/common'
@@ -179,7 +179,7 @@ export class MaterialAdaptationService {
     headers?: Record<string, string>,
   ): Promise<Record<string, Record<string, unknown>>> {
     const mcpClient = await this.createMcpClient(headers || {})
-    const modelName = 'gemini-3-flash-preview'
+    const modelName = 'openai/gpt-5.4'
     const startedAt = new Date()
 
     try {
@@ -187,10 +187,12 @@ export class MaterialAdaptationService {
         return ['getYoutubeContentCategories', 'getBilibiliContentCategories'].includes(tool.getName())
       })
 
-      const model = new ChatGoogleGenerativeAI({
+      const model = new ChatOpenAI({
         model: modelName,
-        apiKey: config.ai.gemini.apiKey,
-        baseUrl: config.ai.gemini.baseUrl,
+        apiKey: config.ai.openai.apiKey,
+        configuration: {
+          baseURL: config.ai.openai.baseUrl,
+        },
       })
 
       // 只生成配置的 schema
@@ -232,7 +234,7 @@ export class MaterialAdaptationService {
           userType: UserType.User,
           type: AiLogType.Agent,
           model: modelName,
-          channel: AiLogChannel.Gemini,
+          channel: AiLogChannel.NewApi,
           startedAt,
           duration,
           points,
@@ -311,7 +313,7 @@ ${optionRulesText}
     headers?: Record<string, string>,
   ): Promise<MaterialAdaptationVo[]> {
     const mcpClient = await this.createMcpClient(headers || {})
-    const modelName = 'gemini-3-flash-preview'
+    const modelName = 'openai/gpt-5.4'
     const startedAt = new Date()
 
     try {
@@ -319,10 +321,12 @@ ${optionRulesText}
         return ['getYoutubeContentCategories', 'getBilibiliContentCategories', 'publishRestrictions'].includes(tool.getName())
       })
 
-      const model = new ChatGoogleGenerativeAI({
+      const model = new ChatOpenAI({
         model: modelName,
-        apiKey: config.ai.gemini.apiKey,
-        baseUrl: config.ai.gemini.baseUrl,
+        apiKey: config.ai.openai.apiKey,
+        configuration: {
+          baseURL: config.ai.openai.baseUrl,
+        },
       })
 
       const outputSchema = buildDynamicOutputSchema(platforms)
@@ -362,7 +366,7 @@ ${optionRulesText}
           userType: UserType.User,
           type: AiLogType.Agent,
           model: modelName,
-          channel: AiLogChannel.Gemini,
+          channel: AiLogChannel.NewApi,
           startedAt,
           duration,
           points,

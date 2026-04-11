@@ -1,25 +1,35 @@
 import { createPersistStore } from '@/utils/createPersistStore'
 
-export type MetadataAiProvider = 'auto' | 'groq' | 'gemini'
+export type MetadataAiProvider = 'auto' | 'gateway' | 'groq' | 'gemini'
 export type MetadataApplyStrategy = 'replace_empty' | 'replace_all'
 
-export const DEFAULT_GROQ_MODEL = process.env.NEXT_PUBLIC_METADATA_GROQ_MODEL || 'llama-3.3-70b-versatile'
-export const DEFAULT_GEMINI_MODEL = process.env.NEXT_PUBLIC_METADATA_GEMINI_MODEL || 'gemini-2.0-flash'
+export const DEFAULT_GATEWAY_MODEL = process.env.NEXT_PUBLIC_METADATA_GATEWAY_MODEL || 'openai/gpt-5.4'
+export const DEFAULT_GROQ_MODEL = process.env.NEXT_PUBLIC_METADATA_GROQ_MODEL || 'groq/llama-3.3-70b-versatile'
+export const DEFAULT_GEMINI_MODEL = process.env.NEXT_PUBLIC_METADATA_GEMINI_MODEL || 'google/gemini-2.5-flash'
 
-export const METADATA_PROVIDER_MODELS: Record<Exclude<MetadataAiProvider, 'auto'>, string[]> = {
+export const METADATA_PROVIDER_MODELS: Record<'gateway' | 'groq' | 'gemini', string[]> = {
+  gateway: [
+    DEFAULT_GATEWAY_MODEL,
+    'openai/gpt-5.4',
+    'anthropic/claude-sonnet-4.6',
+    'google/gemini-3-flash',
+  ],
   groq: [
     DEFAULT_GROQ_MODEL,
-    'llama-3.1-70b-versatile',
-    'mixtral-8x7b-32768',
+    'groq/llama-3.1-70b-versatile',
+    'groq/mixtral-8x7b-32768',
   ],
   gemini: [
     DEFAULT_GEMINI_MODEL,
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-pro',
+    'google/gemini-2.5-flash-lite',
+    'google/gemini-1.5-pro',
   ],
 }
 
 export function getDefaultModelByProvider(provider: MetadataAiProvider): string {
+  if (provider === 'gateway') {
+    return DEFAULT_GATEWAY_MODEL
+  }
   if (provider === 'gemini') {
     return DEFAULT_GEMINI_MODEL
   }
@@ -29,6 +39,7 @@ export function getDefaultModelByProvider(provider: MetadataAiProvider): string 
 export interface MetadataAiSettings {
   provider: MetadataAiProvider
   model?: string
+  gatewayApiKey?: string
   promptTemplate: string
   strategy: MetadataApplyStrategy
 }
@@ -51,8 +62,9 @@ Rules:
 4) Return 5-10 relevant tags.`
 
 const DEFAULT_SETTINGS: MetadataAiSettings = {
-  provider: 'groq',
-  model: DEFAULT_GROQ_MODEL,
+  provider: 'gateway',
+  model: DEFAULT_GATEWAY_MODEL,
+  gatewayApiKey: '',
   promptTemplate: DEFAULT_METADATA_PROMPT_TEMPLATE,
   strategy: 'replace_empty',
 }
@@ -88,7 +100,7 @@ export const useMetadataAiSettingsStore = createPersistStore(
   }),
   {
     name: 'create-material-metadata-ai-settings',
-    version: 2,
+    version: 3,
   },
   'localStorage',
 )

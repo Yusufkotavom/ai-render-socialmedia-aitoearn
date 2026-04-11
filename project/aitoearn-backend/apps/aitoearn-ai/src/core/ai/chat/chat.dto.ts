@@ -33,6 +33,7 @@ export class ChatMessageDto extends createZodDto(chatMessageSchema) {}
 export const chatCompletionDtoSchema = z.object({
   messages: z.array(chatMessageSchema).min(1).describe('消息列表'),
   model: z.string().describe('模型'),
+  gatewayApiKey: z.string().optional().describe('Gateway API Key（可选，支持用户自定义）'),
   temperature: z.number().min(0).max(2).optional().describe('温度参数'),
   maxTokens: z.number().int().min(1).optional().describe('最大输出token数'),
   maxCompletionTokens: z.number().optional(),
@@ -66,6 +67,7 @@ export const claudeChatProxyDtoSchema = z.looseObject({
   })).min(1),
   model: z.string(),
   max_tokens: z.number().int().min(1).default(32000),
+  gatewayApiKey: z.string().optional(),
 })
 
 export class ClaudeChatProxyDto extends createZodDto(claudeChatProxyDtoSchema, 'ClaudeChatProxyDto') {}
@@ -83,6 +85,7 @@ export const chatStreamProxyDtoSchema = z.looseObject({
     content: z.any(),
   })).min(1),
   model: z.string(),
+  gatewayApiKey: z.string().optional(),
 })
 
 export class ChatStreamProxyDto extends createZodDto(chatStreamProxyDtoSchema, 'ChatStreamProxyDto') {}
@@ -111,6 +114,7 @@ export const geminiContentSchema = z.object({
 
 export const geminiGenerateContentDtoSchema = z.object({
   model: z.string().describe('Gemini 模型名称'),
+  gatewayApiKey: z.string().optional().describe('Gateway API Key（可选，支持用户自定义）'),
   contents: z.array(geminiContentSchema).describe('内容列表'),
   config: z.looseObject({
     temperature: z.number().optional(),

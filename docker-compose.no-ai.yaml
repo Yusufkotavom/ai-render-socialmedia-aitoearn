@@ -69,9 +69,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
       DB_NAME: ${DB_NAME:-aitoearn}
       AUTO_LOGIN_TOKEN_PATH: ${AUTO_LOGIN_TOKEN_PATH:-/data/init/token.txt}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-password}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: password
       REDIS_TLS: ${REDIS_TLS:-false}
     entrypoint: /bin/sh -c "npm install --omit=dev 2>/dev/null && node init.mjs"
     networks:
@@ -95,9 +95,9 @@ services:
       APP_NAME: ${SERVER_APP_NAME:-aitoearn-server}
       APP_DOMAIN: ${APP_DOMAIN:-api.piiblog.net}
       MONGODB_URI: ${MONGO_URI}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-password}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: password
       AI_URL: ${AI_URL:-http://aitoearn-ai:3010}
       JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-change-this-secret-token}
@@ -144,7 +144,7 @@ services:
       RELAY_API_KEY: ${RELAY_API_KEY:-}
       RELAY_CALLBACK_URL: ${RELAY_CALLBACK_URL:-https://${APP_DOMAIN:-api.piiblog.net}/api/plat/relay-callback}
       MONGO_URI: ${MONGO_URI}
-      REDIS_TLS: ${REDIS_TLS}
+      REDIS_TLS: "false"
     healthcheck:
       test:
       - CMD

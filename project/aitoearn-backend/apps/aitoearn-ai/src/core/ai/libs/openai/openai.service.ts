@@ -16,6 +16,12 @@ type ChatCompletionOptions = OpenAIChatOptions & {
   messages: BaseMessage[]
 }
 
+type OpenAIRuntimeOptions = {
+  apiKey?: string
+  baseURL?: string
+  timeout?: number
+}
+
 @Injectable()
 export class OpenaiService {
   private readonly logger = new Logger(OpenaiService.name)
@@ -29,11 +35,11 @@ export class OpenaiService {
     this.chatOpenAI = this._createChatModel({})
   }
 
-  private _createOpenAIClient(): OpenAI {
+  private _createOpenAIClient(runtimeOptions?: OpenAIRuntimeOptions): OpenAI {
     return new OpenAI({
-      apiKey: this.config.apiKey,
-      baseURL: this.config.baseUrl,
-      timeout: this.config.timeout,
+      apiKey: runtimeOptions?.apiKey ?? this.config.apiKey,
+      baseURL: runtimeOptions?.baseURL ?? this.config.baseUrl,
+      timeout: runtimeOptions?.timeout ?? this.config.timeout,
     })
   }
 
@@ -63,8 +69,15 @@ export class OpenaiService {
     return await this._createChatCompletionStreamWithOptions(options)
   }
 
-  async createRawStream(options: OpenAI.Chat.ChatCompletionCreateParamsStreaming) {
-    return this.openAI.chat.completions.create(options)
+  async createRawStream(
+    options: OpenAI.Chat.ChatCompletionCreateParamsStreaming,
+    runtimeOptions?: OpenAIRuntimeOptions,
+  ) {
+    if (!runtimeOptions) {
+      return this.openAI.chat.completions.create(options)
+    }
+    const client = this._createOpenAIClient(runtimeOptions)
+    return client.chat.completions.create(options)
   }
 
   private async _consumeChatStream(options: ChatCompletionOptions): Promise<AIMessageChunk> {

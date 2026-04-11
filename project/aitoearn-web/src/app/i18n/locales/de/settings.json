@@ -176,6 +176,9 @@
     "save": "Speichern",
     "saving": "Wird gespeichert...",
     "saveSuccess": "Erfolgreich gespeichert",
-    "saveFailed": "Speichern fehlgeschlagen"
+    "saveFailed": "Speichern fehlgeschlagen",
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... (optional)",
+    "gatewayApiKeyHint": "Optional. If set, this key will be used for AI Gateway text requests."
   }
 }

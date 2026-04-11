@@ -37,6 +37,7 @@ export function AgentTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selectedModel, setSelectedModel] = useState<string>('')
+  const [gatewayApiKey, setGatewayApiKey] = useState<string>('')
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -46,6 +47,13 @@ export function AgentTab() {
     const agentConfig = (userInfo as any)?.aiConfig?.agent
     if (agentConfig?.defaultModel) {
       setSelectedModel(agentConfig.defaultModel)
+    }
+    const savedGatewayApiKey = agentConfig?.option?.gatewayApiKey
+    if (typeof savedGatewayApiKey === 'string') {
+      setGatewayApiKey(savedGatewayApiKey)
+    }
+    else if (typeof window !== 'undefined') {
+      setGatewayApiKey(localStorage.getItem('ai_gateway_api_key') || '')
     }
   }, [userInfo])
 
@@ -57,9 +65,13 @@ export function AgentTab() {
         if (res?.code === 0 && res.data) {
           const models = res.data as ChatModel[]
           setChatModels(models)
-          // 如果用户没有设置默认模型，使用第一个
-          if (!selectedModel && models.length > 0) {
-            setSelectedModel(models[0].name)
+          if (models.length > 0) {
+            const currentSelected = selectedModel || (userInfo as any)?.aiConfig?.agent?.defaultModel || ''
+            const exists = models.some(m => m.name === currentSelected)
+            if (!exists) {
+              const preferred = models.find(m => m.name === 'openai/gpt-5.4')
+              setSelectedModel((preferred || models[0]).name)
+            }
           }
         }
       }
@@ -107,11 +119,20 @@ export function AgentTab() {
         type: 'agent',
         value: {
           defaultModel: selectedModel,
-          option: {},
+          option: {
+            ...(((userInfo as any)?.aiConfig?.agent?.option && typeof (userInfo as any)?.aiConfig?.agent?.option === 'object')
+              ? (userInfo as any).aiConfig.agent.option
+              : {}),
+            gatewayApiKey: gatewayApiKey.trim(),
+          },
         },
       })
 
       if (res?.code === 0) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('ai_chat_model', selectedModel)
+          localStorage.setItem('ai_gateway_api_key', gatewayApiKey.trim())
+        }
         toast.success(t('agent.saveSuccess'))
         await getUserInfo()
       }
@@ -295,6 +316,23 @@ export function AgentTab() {
           )}
 
           {/* 保存按钮 */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground">
+              {t('agent.gatewayApiKeyLabel')}
+            </label>
+            <input
+              value={gatewayApiKey}
+              onChange={e => setGatewayApiKey(e.target.value)}
+              placeholder={t('agent.gatewayApiKeyPlaceholder')}
+              type="password"
+              autoComplete="off"
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('agent.gatewayApiKeyHint')}
+            </p>
+          </div>
+
           <Button onClick={handleSave} disabled={saving || loading}>
             {saving ? t('agent.saving') : t('agent.save')}
           </Button>

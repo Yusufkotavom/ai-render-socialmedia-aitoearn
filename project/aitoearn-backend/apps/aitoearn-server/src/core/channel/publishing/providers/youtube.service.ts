@@ -4,6 +4,7 @@ import {
   PublishRecord,
   PublishStatus,
 } from '@yikart/mongodb'
+import axios from 'axios'
 import { GaxiosResponse } from 'gaxios'
 import { youtube_v3 } from 'googleapis'
 import { z } from 'zod'
@@ -41,6 +42,32 @@ export class YoutubePubService extends PublishService {
     private readonly assetsService: AssetsService,
   ) {
     super()
+  }
+
+  private async uploadVideoThumbnail(accountId: string, videoId: string, coverUrl?: string) {
+    if (!coverUrl) {
+      return
+    }
+
+    const normalizedCoverUrl = this.assetsService.buildUrl(coverUrl)
+    const thumbnailResp = await axios.get<ArrayBuffer>(normalizedCoverUrl, {
+      responseType: 'arraybuffer',
+    })
+    const thumbnailBuffer = Buffer.from(thumbnailResp.data)
+    const mimeType = thumbnailResp.headers['content-type'] || 'image/jpeg'
+
+    const thumbnailResult = await this.youtubeService.uploadThumbnails(
+      accountId,
+      videoId,
+      {
+        mimeType,
+        body: thumbnailBuffer,
+      },
+    )
+
+    if (!thumbnailResult) {
+      throw new Error('YouTube thumbnail upload failed')
+    }
   }
 
   async immediatePublish(publishTask: PublishRecord): Promise<PublishingTaskResult> {
@@ -104,6 +131,19 @@ export class YoutubePubService extends PublishService {
         this.logger.error('error completing video upload')
         throw PublishingException.nonRetryable('error completing video upload')
       }
+
+      if (publishTask.coverUrl) {
+        try {
+          await this.uploadVideoThumbnail(
+            publishTask.accountId,
+            resourceId,
+            publishTask.coverUrl,
+          )
+        }
+        catch (error) {
+          this.logger.warn(`video uploaded but thumbnail upload failed: ${(error as Error).message}`)
+        }
+      }
       return {
         postId: resourceId,
         permalink: `https://www.youtube.com/watch?v=${resourceId}`,
@@ -139,6 +179,18 @@ export class YoutubePubService extends PublishService {
       },
     }
     await this.youtubeService.updateVideo(publishTask.accountId, videoSchema)
+    if (publishTask.coverUrl) {
+      try {
+        await this.uploadVideoThumbnail(
+          publishTask.accountId,
+          publishTask.dataId,
+          publishTask.coverUrl,
+        )
+      }
+      catch (error) {
+        this.logger.warn(`video metadata updated but thumbnail upload failed: ${(error as Error).message}`)
+      }
+    }
     return {
       status: PublishStatus.PUBLISHED,
     }

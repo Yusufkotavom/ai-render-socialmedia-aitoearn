@@ -325,14 +325,14 @@
     "metadataAiSettingsTitle": "AI 元数据生成设置",
     "metadataProviderLabel": "提供方",
     "metadataModelLabel": "模型",
-    "metadataModelPlaceholder": "输入模型名称（默认：Groq）",
+    "metadataModelPlaceholder": "输入模型名称（默认：openai/gpt-5.4）",
     "metadataApplyStrategyLabel": "应用策略",
     "metadataApplyReplaceEmpty": "仅填充空字段",
     "metadataApplyReplaceAll": "覆盖全部字段",
     "metadataPromptTemplateLabel": "提示词模板",
     "metadataPromptTemplatePlaceholder": "可编辑提示词模板，支持 {{title}}、{{description}}、{{tags}}、{{platforms}} 变量。",
     "metadataResetPrompt": "恢复默认提示词",
-    "apiKeyLocationHint": "API Key 从服务端环境变量读取（GROQ_API_KEY / GEMINI_API_KEY）。",
+    "apiKeyLocationHint": "默认使用服务端配置的 AI Gateway Key，也可在下方填写用户自定义 Gateway Key。",
     "metadataGenerateSuccess": "元数据生成成功",
     "metadataGenerateNoChanges": "元数据已生成，但未改动字段（当前为仅填充空字段）。",
     "metadataGenerateFallbackUsed": "AI 提供方调用失败，当前展示本地兜底元数据。",
@@ -340,7 +340,9 @@
     "instagramImageAspectRatio": "Instagram 图片宽高比需在 4:5 ~ 1.91:1 范围内",
     "instagramVideoAspectRatio": "Instagram 视频宽高比需在 9:16 ~ 4:5 范围内",
     "facebookImageAspectRatio": "Facebook 图片宽高比需在 4:5 ~ 1.91:1 范围内",
-    "facebookVideoAspectRatio": "Facebook 视频宽高比需在 9:16 ~ 4:5 范围内"
+    "facebookVideoAspectRatio": "Facebook 视频宽高比需在 9:16 ~ 4:5 范围内",
+    "gatewayApiKeyLabel": "Gateway API Key（可选）",
+    "gatewayApiKeyPlaceholder": "输入 vgw_... 或自定义 Key"
   },
   "planTab": {
     "more": "更多",

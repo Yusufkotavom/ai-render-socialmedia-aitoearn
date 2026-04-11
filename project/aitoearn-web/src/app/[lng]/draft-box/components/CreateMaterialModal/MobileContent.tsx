@@ -50,6 +50,7 @@ const MobileContent = memo(
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [draftPromptTemplate, setDraftPromptTemplate] = useState('')
     const [draftModel, setDraftModel] = useState('')
+    const [draftGatewayApiKey, setDraftGatewayApiKey] = useState('')
 
     const {
       params,
@@ -211,6 +212,7 @@ const MobileContent = memo(
             open={settingsOpen}
             provider={settings.provider}
             model={draftModel || settings.model}
+            gatewayApiKey={draftGatewayApiKey || settings.gatewayApiKey}
             strategy={settings.strategy}
             promptTemplate={draftPromptTemplate || settings.promptTemplate}
             onOpenChange={(open) => {
@@ -224,16 +226,22 @@ const MobileContent = memo(
                 })()
                 setDraftPromptTemplate(settings.promptTemplate)
                 setDraftModel(settings.model || '')
+                setDraftGatewayApiKey(settings.gatewayApiKey || '')
               }
             }}
             onProviderChange={provider => updateSettings({ provider })}
             onModelChange={setDraftModel}
+            onGatewayApiKeyChange={setDraftGatewayApiKey}
             onStrategyChange={strategy => updateSettings({ strategy })}
             onPromptTemplateChange={setDraftPromptTemplate}
             onSave={() => {
               const nextSettings = {
                 promptTemplate: draftPromptTemplate || settings.promptTemplate,
                 model: draftModel || settings.model,
+                gatewayApiKey: draftGatewayApiKey || settings.gatewayApiKey || '',
+              }
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('ai_gateway_api_key', nextSettings.gatewayApiKey || '')
               }
               updateSettings(nextSettings)
               void apiUpdateMetadataSettings({

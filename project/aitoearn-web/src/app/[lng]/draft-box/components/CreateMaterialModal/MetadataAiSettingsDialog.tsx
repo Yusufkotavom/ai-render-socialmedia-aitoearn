@@ -17,28 +17,32 @@ interface MetadataAiSettingsDialogProps {
   open: boolean
   provider: MetadataAiProvider
   model?: string
+  gatewayApiKey?: string
   strategy: MetadataApplyStrategy
   promptTemplate: string
   onOpenChange: (open: boolean) => void
   onProviderChange: (provider: MetadataAiProvider) => void
   onModelChange: (model: string) => void
+  onGatewayApiKeyChange: (gatewayApiKey: string) => void
   onStrategyChange: (strategy: MetadataApplyStrategy) => void
   onPromptTemplateChange: (value: string) => void
   onSave: () => void
 }
 
-const providerOptions: MetadataAiProvider[] = ['auto', 'groq', 'gemini']
+const providerOptions: MetadataAiProvider[] = ['auto', 'gateway', 'groq', 'gemini']
 const strategyOptions: MetadataApplyStrategy[] = ['replace_empty', 'replace_all']
 
 const MetadataAiSettingsDialog = memo(({
   open,
   provider,
   model,
+  gatewayApiKey,
   strategy,
   promptTemplate,
   onOpenChange,
   onProviderChange,
   onModelChange,
+  onGatewayApiKeyChange,
   onStrategyChange,
   onPromptTemplateChange,
   onSave,
@@ -99,6 +103,18 @@ const MetadataAiSettingsDialog = memo(({
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t('createMaterial.gatewayApiKeyLabel')}</p>
+            <input
+              value={gatewayApiKey || ''}
+              onChange={e => onGatewayApiKeyChange(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder={t('createMaterial.gatewayApiKeyPlaceholder')}
+              type="password"
+              autoComplete="off"
+            />
           </div>
 
           <div className="space-y-2">

@@ -1,7 +1,7 @@
 import { createZodDto } from '@yikart/common'
 import { z } from 'zod'
 
-export const metadataProviderSchema = z.enum(['auto', 'groq', 'gemini'])
+export const metadataProviderSchema = z.enum(['auto', 'gateway', 'groq', 'gemini'])
 
 export const generateMetadataItemSchema = z.object({
   materialId: z.string().optional(),
@@ -15,6 +15,7 @@ export const generateMetadataItemSchema = z.object({
 export const generateMetadataDtoSchema = z.object({
   provider: metadataProviderSchema.default('auto'),
   model: z.string().optional(),
+  gatewayApiKey: z.string().optional(),
   promptTemplate: z.string().default(''),
   strategy: z.enum(['replace_empty', 'replace_all']).default('replace_empty'),
   item: generateMetadataItemSchema,
@@ -23,8 +24,9 @@ export const generateMetadataDtoSchema = z.object({
 export class GenerateMetadataDto extends createZodDto(generateMetadataDtoSchema, 'GenerateMetadataDto') {}
 
 export const metadataSettingsSchema = z.object({
-  provider: metadataProviderSchema.default('groq'),
+  provider: metadataProviderSchema.default('gateway'),
   model: z.string().optional(),
+  gatewayApiKey: z.string().optional(),
   promptTemplate: z.string().default(''),
   strategy: z.enum(['replace_empty', 'replace_all']).default('replace_empty'),
 })
@@ -34,6 +36,7 @@ export class MetadataSettingsDto extends createZodDto(metadataSettingsSchema, 'M
 export const createMetadataBatchDtoSchema = z.object({
   provider: metadataProviderSchema.default('auto'),
   model: z.string().optional(),
+  gatewayApiKey: z.string().optional(),
   promptTemplate: z.string().default(''),
   strategy: z.enum(['replace_empty', 'replace_all']).default('replace_empty'),
   items: z.array(generateMetadataItemSchema).min(1).max(100),

@@ -212,11 +212,11 @@ services:
       MONGODB_PORT: ${MONGODB_PORT:-27017}
       MONGODB_USERNAME: ${MONGODB_USERNAME:-admin}
       MONGODB_PASSWORD: ${MONGODB_PASSWORD:-password}
-      REDIS_URL: ${REDIS_URL:-}
-      REDIS_TLS: ${REDIS_TLS:-}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-password}
+      REDIS_URL: ""
+      REDIS_TLS: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: password
       JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-change-this-secret-token}
       SERVER_URL: ${SERVER_URL:-http://aitoearn-server:3002}
@@ -290,11 +290,11 @@ services:
       MONGODB_PORT: ${MONGODB_PORT:-27017}
       MONGODB_USERNAME: ${MONGODB_USERNAME:-admin}
       MONGODB_PASSWORD: ${MONGODB_PASSWORD:-password}
-      REDIS_URL: ${REDIS_URL:-}
-      REDIS_TLS: ${REDIS_TLS:-}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-password}
+      REDIS_URL: ""
+      REDIS_TLS: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: password
       AI_URL: ${AI_URL:-http://aitoearn-ai:3010}
       JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
       ADMIN_PASSWORD_TOKEN: ${ADMIN_PASSWORD_TOKEN:-}

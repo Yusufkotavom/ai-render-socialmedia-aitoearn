@@ -26,6 +26,8 @@ const {
   VOLCENGINE_SECRET_ACCESS_KEY,
   VOLCENGINE_VOD_SPACE_NAME,
   OPENAI_API_KEY,
+  AI_GATEWAY_API_KEY,
+  AI_GATEWAY_BASE_URL,
   OPENAI_BASE_URL,
   ANTHROPIC_BASE_URL,
   ANTHROPIC_API_KEY,
@@ -204,10 +206,11 @@ module.exports = {
       urlAuthPrimaryKey: 'd8eea018341d4e9687ead69bea628271',
     },
     openai: {
-      baseUrl: AI_PROXY_URL
+      baseUrl: AI_GATEWAY_BASE_URL
+        || (AI_PROXY_URL
         ? `${AI_PROXY_URL}/${OPENAI_BASE_URL || 'https://api.openai.com/v1'}`
-        : (OPENAI_BASE_URL || 'https://api.openai.com/v1'),
-      apiKey: OPENAI_API_KEY || '',
+        : (OPENAI_BASE_URL || 'https://api.openai.com/v1')),
+      apiKey: AI_GATEWAY_API_KEY || OPENAI_API_KEY || '',
     },
     grok: {
       baseUrl: 'https://api.x.ai',
@@ -291,7 +294,7 @@ module.exports = {
     models: {
       chat: [
         {
-          name: 'gemini-3.1-pro-preview',
+          name: 'google/gemini-3.1-pro-preview',
           description: 'Gemini 3.1 Pro Preview',
           inputModalities: ['text', 'image', 'audio', 'video'],
           outputModalities: ['text'],
@@ -310,7 +313,7 @@ module.exports = {
           },
         },
         {
-          name: 'gemini-3-flash-preview',
+          name: 'google/gemini-3-flash-preview',
           description: 'Gemini 3 Flash Preview',
           inputModalities: ['text', 'image', 'audio', 'video'],
           outputModalities: ['text'],
@@ -324,7 +327,7 @@ module.exports = {
           },
         },
         {
-          name: 'gpt-5.1-all',
+          name: 'openai/gpt-5.4',
           description: 'GPT 5.1',
           inputModalities: ['text', 'image'],
           outputModalities: ['text'],
@@ -338,7 +341,7 @@ module.exports = {
           },
         },
         {
-          name: 'gpt-5',
+          name: 'openai/gpt-5.4-mini',
           description: 'GPT 5',
           inputModalities: ['text', 'image'],
           outputModalities: ['text'],
@@ -352,7 +355,7 @@ module.exports = {
           },
         },
         {
-          name: 'llama-3.3-70b-versatile',
+          name: 'groq/llama-3.3-70b-versatile',
           description: 'Groq Llama 3.3 70B Versatile',
           inputModalities: ['text'],
           outputModalities: ['text'],
@@ -366,7 +369,7 @@ module.exports = {
           },
         },
         {
-          name: 'llama-3.1-70b-versatile',
+          name: 'groq/llama-3.1-70b-versatile',
           description: 'Groq Llama 3.1 70B Versatile',
           inputModalities: ['text'],
           outputModalities: ['text'],
@@ -380,7 +383,7 @@ module.exports = {
           },
         },
         {
-          name: 'mixtral-8x7b-32768',
+          name: 'groq/mixtral-8x7b-32768',
           description: 'Groq Mixtral 8x7B',
           inputModalities: ['text'],
           outputModalities: ['text'],
@@ -394,7 +397,7 @@ module.exports = {
           },
         },
         {
-          name: 'gemini-3.1-flash-image-preview',
+          name: 'google/gemini-3.1-flash-image-preview',
           description: 'Nano Banana 2',
           inputModalities: ['text', 'image'],
           outputModalities: ['image'],
@@ -408,7 +411,7 @@ module.exports = {
           },
         },
         {
-          name: 'gemini-3-pro-image-preview',
+          name: 'google/gemini-3-pro-image-preview',
           description: 'Nano Banana Pro',
           inputModalities: ['text', 'image'],
           outputModalities: ['image'],
@@ -422,7 +425,7 @@ module.exports = {
           },
         },
         {
-          name: 'claude-opus-4-5-20251101',
+          name: 'anthropic/claude-opus-4.5',
           description: 'Claude Opus 4.5',
           inputModalities: ['text', 'image'],
           outputModalities: ['text'],
@@ -436,7 +439,7 @@ module.exports = {
           },
         },
         {
-          name: 'claude-opus-4-6',
+          name: 'anthropic/claude-opus-4.6',
           description: 'Claude Opus 4.6',
           inputModalities: ['text', 'image'],
           outputModalities: ['text'],
@@ -450,7 +453,7 @@ module.exports = {
           },
         },
         {
-          name: 'claude-sonnet-4-5-20250929',
+          name: 'anthropic/claude-sonnet-4.6',
           description: 'Claude Sonnet 4.5',
           inputModalities: ['text', 'image'],
           outputModalities: ['text'],
@@ -464,7 +467,7 @@ module.exports = {
           },
         },
         {
-          name: 'gemini-2.5-flash',
+          name: 'google/gemini-2.5-flash',
           description: 'Gemini 2.5 Flash',
           inputModalities: ['text', 'image', 'audio', 'video'],
           outputModalities: ['text'],

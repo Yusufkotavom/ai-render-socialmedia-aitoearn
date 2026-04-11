@@ -1,10 +1,11 @@
 import http from '@/utils/request'
 
-export type MetadataAiProvider = 'auto' | 'groq' | 'gemini'
+export type MetadataAiProvider = 'auto' | 'gateway' | 'groq' | 'gemini'
 
 export interface GenerateMetadataRequest {
   provider: MetadataAiProvider
   model?: string
+  gatewayApiKey?: string
   promptTemplate: string
   strategy: 'replace_empty' | 'replace_all'
   item: {
@@ -36,6 +37,7 @@ export function apiGenerateMetadata(data: GenerateMetadataRequest) {
 export interface CreateMetadataBatchRequest {
   provider: MetadataAiProvider
   model?: string
+  gatewayApiKey?: string
   promptTemplate: string
   strategy: 'replace_empty' | 'replace_all'
   items: Array<{
@@ -79,6 +81,7 @@ export function apiGetMetadataBatchJob(jobId: string) {
 export interface MetadataSettings {
   provider: MetadataAiProvider
   model?: string
+  gatewayApiKey?: string
   promptTemplate: string
   strategy: 'replace_empty' | 'replace_all'
 }

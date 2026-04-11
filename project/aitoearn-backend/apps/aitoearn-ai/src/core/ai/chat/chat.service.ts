@@ -1,17 +1,14 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { RawMessageStreamEvent } from '@anthropic-ai/sdk/resources'
 import { GenerateContentResponse, GenerateContentResponseUsageMetadata } from '@google/genai'
 import { BaseMessage, ChatMessage } from '@langchain/core/messages'
 import { OpenAIClient } from '@langchain/openai'
 import { Injectable, Logger } from '@nestjs/common'
 import { AssetsService } from '@yikart/assets'
-import { AppException, CreditsType, getErrorMessage, getErrorStack, ResponseCode, UserType } from '@yikart/common'
+import { AppException, CreditsType, getErrorMessage, ResponseCode, UserType } from '@yikart/common'
 import { CreditsHelperService } from '@yikart/helpers'
 import { AiLogChannel, AiLogRepository, AiLogStatus, AiLogType, AssetType, UserRepository } from '@yikart/mongodb'
 import OpenAI from 'openai'
 import { from, merge, Observable } from 'rxjs'
 import { catchError, concatMap, ignoreElements, last, share } from 'rxjs/operators'
-import { config } from '../../../config'
 import { GeminiService } from '../libs/gemini/gemini.service'
 import { OpenaiService } from '../libs/openai'
 import { ModelsConfigService } from '../models-config'
@@ -25,14 +22,25 @@ import {
   UserGeminiGenerateContentDto,
 } from './chat.dto'
 
+const LEGACY_MODEL_ALIASES: Record<string, string> = {
+  'gpt-5.1-all': 'openai/gpt-5.4',
+  'gpt-5': 'openai/gpt-5.4-mini',
+  'llama-3.3-70b-versatile': 'groq/llama-3.3-70b-versatile',
+  'llama-3.1-70b-versatile': 'groq/llama-3.1-70b-versatile',
+  'mixtral-8x7b-32768': 'groq/mixtral-8x7b-32768',
+  'gemini-3.1-pro-preview': 'google/gemini-3.1-pro-preview',
+  'gemini-3-flash-preview': 'google/gemini-3-flash-preview',
+  'gemini-2.5-flash': 'google/gemini-2.5-flash',
+  'gemini-3.1-flash-image-preview': 'google/gemini-3.1-flash-image-preview',
+  'gemini-3-pro-image-preview': 'google/gemini-3-pro-image-preview',
+  'claude-opus-4-5-20251101': 'anthropic/claude-opus-4.5',
+  'claude-opus-4-6': 'anthropic/claude-opus-4.6',
+  'claude-sonnet-4-5-20250929': 'anthropic/claude-sonnet-4.6',
+}
+
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name)
-
-  private readonly anthropic = new Anthropic({
-    apiKey: config.ai.anthropic.apiKey,
-    baseURL: config.ai.anthropic.baseUrl,
-  })
 
   constructor(
     private readonly userRepo: UserRepository,
@@ -109,50 +117,62 @@ export class ChatService {
     return content
   }
 
+  private extractTextContent(content: unknown): string {
+    if (typeof content === 'string') {
+      return content
+    }
+
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => {
+          if (typeof part === 'string') {
+            return part
+          }
+          if (typeof part === 'object' && part !== null && 'text' in part && typeof part.text === 'string') {
+            return part.text
+          }
+          return ''
+        })
+        .join('\n')
+    }
+
+    return ''
+  }
+
+  private sanitizeGatewayApiKey(gatewayApiKey?: string): string | undefined {
+    const trimmed = gatewayApiKey?.trim()
+    return trimmed ? trimmed : undefined
+  }
+
+  public resolveModelAlias(model: string): string {
+    const normalized = model.trim().toLowerCase()
+    if (!normalized) {
+      return model
+    }
+    return LEGACY_MODEL_ALIASES[normalized] || model.trim()
+  }
+
   async chatCompletion(request: ChatCompletionDto, userId: string) {
-    const { messages, model, ...params } = request
-    const normalizedModel = model.toLowerCase()
-    const isGroqCompatibleModel = normalizedModel.includes('llama')
-      || normalizedModel.includes('mixtral')
-      || normalizedModel.includes('groq')
+    const { messages, model, gatewayApiKey, ...params } = request
+    const resolvedModel = this.resolveModelAlias(model)
 
     const langchainMessages: BaseMessage[] = messages.map((message) => {
       return new ChatMessage(message)
     })
 
     this.logger.log({
-      model,
-      route: isGroqCompatibleModel ? 'groq-openai-compatible' : 'default-openai-compatible',
+      model: resolvedModel,
+      route: 'gateway-openai-compatible',
+      hasCustomGatewayApiKey: Boolean(gatewayApiKey),
     }, 'Chat completion routing')
 
-    // Groq routing explicitly reads GROQ_API_KEY first to avoid naming confusion with legacy GROK_API_KEY.
-    const groqApiKey = process.env['GROQ_API_KEY'] || config.ai.grok.apiKey
-
-    if (isGroqCompatibleModel && !groqApiKey) {
-      this.logger.error({
-        model,
-        route: 'groq-openai-compatible',
-        provider: 'groq',
-        envHint: 'Set GROQ_API_KEY (preferred). Legacy fallback: GROK_API_KEY',
-      }, 'Missing Groq API key for Groq-compatible model routing')
-      throw new AppException(ResponseCode.AiCallFailed, { error: 'Missing Groq API key: set GROQ_API_KEY (preferred), fallback GROK_API_KEY' })
-    }
-
-    const result = isGroqCompatibleModel
-      ? await this.openaiService.createGroqChatCompletion({
-          model,
-          messages: langchainMessages,
-          ...params,
-          groqApiKey,
-          groqBaseURL: 'https://api.groq.com/openai/v1',
-          modalities: params.modalities as OpenAIClient.Chat.ChatCompletionModality[],
-        })
-      : await this.openaiService.createChatCompletion({
-          model,
-          messages: langchainMessages,
-          ...params,
-          modalities: params.modalities as OpenAIClient.Chat.ChatCompletionModality[],
-        })
+    const result = await this.openaiService.createChatCompletion({
+      model: resolvedModel,
+      messages: langchainMessages,
+      ...params,
+      apiKey: this.sanitizeGatewayApiKey(gatewayApiKey),
+      modalities: params.modalities as OpenAIClient.Chat.ChatCompletionModality[],
+    })
 
     const usage = result.usage_metadata
     if (!usage) {
@@ -160,10 +180,10 @@ export class ChatService {
     }
 
     // 处理返回的 content 中的 base64 图片
-    result.content = await this.processAIMessageChunkContent(result.content, model, userId) as typeof result.content
+    result.content = await this.processAIMessageChunkContent(result.content, resolvedModel, userId) as typeof result.content
 
     return {
-      model,
+      model: resolvedModel,
       usage,
       ...result,
     }
@@ -269,7 +289,8 @@ export class ChatService {
   }
 
   async userChatCompletion({ userId, userType, ...params }: UserChatCompletionDto) {
-    const modelConfig = (await this.getChatModelConfig({ userId, userType })).find((m: { name: string }) => m.name === params.model)
+    const resolvedModel = this.resolveModelAlias(params.model)
+    const modelConfig = (await this.getChatModelConfig({ userId, userType })).find((m: { name: string }) => m.name === resolvedModel)
     if (!modelConfig) {
       throw new AppException(ResponseCode.InvalidModel)
     }
@@ -278,12 +299,18 @@ export class ChatService {
 
     const startedAt = new Date()
 
-    const result = await this.chatCompletion(params, userId)
+    const result = await this.chatCompletion({
+      ...params,
+      model: resolvedModel,
+    }, userId)
 
     const { usage } = result
 
     const points = await this.handleCompletion(
-      params,
+      {
+        ...params,
+        model: resolvedModel,
+      },
       userId,
       userType,
       modelConfig,
@@ -339,10 +366,11 @@ export class ChatService {
   async proxyChatStream(
     params: ChatStreamProxyDto & { userId: string, userType: UserType },
   ): Promise<Observable<OpenAI.Chat.ChatCompletionChunk>> {
-    const { userId, userType, model, ...body } = params
+    const { userId, userType, model, gatewayApiKey, ...body } = params
+    const resolvedModel = this.resolveModelAlias(model)
 
     const modelConfig = (await this.getChatModelConfig({ userId, userType }))
-      .find(m => m.name === model)
+      .find(m => m.name === resolvedModel)
     if (!modelConfig) {
       throw new AppException(ResponseCode.InvalidModel)
     }
@@ -353,15 +381,17 @@ export class ChatService {
 
     const stream = await this.openaiService.createRawStream({
       ...body,
-      model,
+      model: resolvedModel,
       stream: true,
       stream_options: { include_usage: true },
-    } as OpenAI.Chat.ChatCompletionCreateParamsStreaming)
+    } as OpenAI.Chat.ChatCompletionCreateParamsStreaming, {
+      apiKey: this.sanitizeGatewayApiKey(gatewayApiKey),
+    })
 
     const stream$ = from(stream as AsyncIterable<OpenAI.Chat.ChatCompletionChunk>).pipe(share())
 
     const contentStream$ = stream$.pipe(
-      concatMap(chunk => this.processChunkContent(chunk, model, userId)),
+      concatMap(chunk => this.processChunkContent(chunk, resolvedModel, userId)),
     )
 
     const billingStream$ = stream$.pipe(
@@ -375,13 +405,13 @@ export class ChatService {
             total_tokens: usage.total_tokens,
           }
           await this.handleCompletion(
-            { model } as ChatCompletionDto,
+            { model: resolvedModel, gatewayApiKey } as ChatCompletionDto,
             userId,
             userType,
             modelConfig,
             startedAt,
             finalUsage,
-            { model, usage: finalUsage },
+            { model: resolvedModel, usage: finalUsage },
           )
         }
       }),
@@ -397,11 +427,11 @@ export class ChatService {
   }
 
   /**
-   * Claude 流式对话（透传，含积分扣费）
-   * 返回 Observable<RawMessageStreamEvent> 原始事件流
+   * Claude 流式对话（兼容入口，统一走 gateway OpenAI-compatible 流）
    */
-  async proxyClaudeChatStream({ userId, userType, ...params }: UserClaudeChatProxyDto): Promise<Observable<RawMessageStreamEvent>> {
-    const modelConfig = (await this.getChatModelConfig({ userId, userType })).find((m: { name: string }) => m.name === params.model)
+  async proxyClaudeChatStream({ userId, userType, ...params }: UserClaudeChatProxyDto): Promise<Observable<OpenAI.Chat.ChatCompletionChunk>> {
+    const resolvedModel = this.resolveModelAlias(params.model)
+    const modelConfig = (await this.getChatModelConfig({ userId, userType })).find((m: { name: string }) => m.name === resolvedModel)
     if (!modelConfig) {
       throw new AppException(ResponseCode.InvalidModel)
     }
@@ -410,28 +440,44 @@ export class ChatService {
 
     const startedAt = new Date()
 
-    const stream = this.anthropic.messages.stream(params as Anthropic.MessageStreamParams)
+    const stream = await this.openaiService.createRawStream({
+      model: resolvedModel,
+      messages: params.messages as OpenAI.Chat.ChatCompletionMessageParam[],
+      stream: true,
+      stream_options: { include_usage: true },
+      max_completion_tokens: params.max_tokens,
+    } as OpenAI.Chat.ChatCompletionCreateParamsStreaming, {
+      apiKey: this.sanitizeGatewayApiKey(params.gatewayApiKey),
+    })
 
-    const stream$ = from(stream).pipe(
+    const stream$ = from(stream as AsyncIterable<OpenAI.Chat.ChatCompletionChunk>).pipe(
       share(),
     )
 
-    const contentStream$ = stream$
+    const contentStream$ = stream$.pipe(
+      concatMap(chunk => this.processChunkContent(chunk, resolvedModel, userId)),
+    )
 
     const completeStream$ = stream$.pipe(
       last(),
-      concatMap(async () => {
-        const finalMessage = await stream.finalMessage()
-        const usage = finalMessage.usage
+      concatMap(async (lastChunk) => {
+        if (!lastChunk.usage) {
+          return
+        }
+        const usage = {
+          input_tokens: lastChunk.usage.prompt_tokens,
+          output_tokens: lastChunk.usage.completion_tokens,
+          total_tokens: lastChunk.usage.total_tokens,
+        }
 
         await this.handleCompletion(
-          { model: params.model, messages: params.messages as ChatCompletionDto['messages'] },
+          { model: resolvedModel, messages: params.messages as ChatCompletionDto['messages'], gatewayApiKey: params.gatewayApiKey },
           userId,
           userType,
           modelConfig,
           startedAt,
           usage,
-          { model: params.model, usage },
+          { model: resolvedModel, usage },
         )
       }),
       ignoreElements(),
@@ -439,7 +485,7 @@ export class ChatService {
 
     return merge(contentStream$, completeStream$).pipe(
       catchError((error) => {
-        this.logger.error(`Error in proxyClaudeChatStream: ${getErrorMessage(error)}`, getErrorStack(error))
+        this.logger.error(`Error in proxyClaudeChatStream: ${getErrorMessage(error)}`)
         throw error
       }),
     )
@@ -450,26 +496,84 @@ export class ChatService {
    * 带用户计费
    */
   async userGeminiGenerateContent(request: UserGeminiGenerateContentDto) {
-    const { userId, userType, model, ...params } = request
+    const { userId, userType, model, gatewayApiKey, ...params } = request
+    const resolvedModel = this.resolveModelAlias(model)
 
-    // 获取模型配置
     const modelConfig = (await this.getChatModelConfig({ userId, userType }))
-      .find(m => m.name === model)
+      .find(m => m.name === resolvedModel)
     if (!modelConfig) {
       throw new AppException(ResponseCode.InvalidModel)
     }
 
-    // 检查余额
     await this.checkUserBalance(userId, userType, modelConfig.pricing)
 
     const startedAt = new Date()
 
+    const isTextOnlyRequest = params.contents.every(content =>
+      content.parts.every(part => 'text' in part),
+    )
+
+    if (isTextOnlyRequest) {
+      const messages: ChatCompletionDto['messages'] = []
+      for (const content of params.contents) {
+        const text = content.parts
+          .map(part => ('text' in part ? part.text : ''))
+          .filter(Boolean)
+          .join('\n')
+          .trim()
+        if (!text) {
+          continue
+        }
+        messages.push({
+          role: content.role === 'model' ? 'assistant' : 'user',
+          content: text,
+        })
+      }
+
+      if (messages.length === 0) {
+        throw new AppException(ResponseCode.AiCallFailed, { error: 'No valid text content in Gemini request' })
+      }
+
+      const completion = await this.chatCompletion({
+        model: resolvedModel,
+        gatewayApiKey,
+        messages,
+        temperature: params.config?.temperature,
+        topP: params.config?.topP,
+        maxTokens: params.config?.maxOutputTokens,
+      }, userId)
+
+      const text = this.extractTextContent(completion.content)
+      const usage = completion.usage || {}
+
+      await this.handleCompletion(
+        { model: resolvedModel, messages, gatewayApiKey },
+        userId,
+        userType,
+        modelConfig,
+        startedAt,
+        usage,
+        { model: resolvedModel, usage },
+      )
+
+      const response = {
+        text,
+        candidates: [{ content: { parts: [{ text }] } }],
+        usageMetadata: {
+          promptTokenCount: usage.input_tokens || 0,
+          candidatesTokenCount: usage.output_tokens || 0,
+          totalTokenCount: usage.total_tokens || 0,
+        },
+      }
+
+      return response as unknown as GenerateContentResponse
+    }
+
     let result: GenerateContentResponse | undefined
     let usage: GenerateContentResponseUsageMetadata | undefined
 
-    // 调用 Gemini generateContent
     const responses = await this.geminiService.generateContentStream({
-      model,
+      model: resolvedModel,
       contents: params.contents,
       config: params.config,
     })
@@ -505,13 +609,13 @@ export class ChatService {
     }
 
     await this.handleCompletion(
-      { model, messages: [] },
+      { model: resolvedModel, messages: [], gatewayApiKey },
       userId,
       userType,
       modelConfig,
       startedAt,
       finalUsage,
-      { model, usage: finalUsage },
+      { model: resolvedModel, usage: finalUsage },
     )
 
     return result!

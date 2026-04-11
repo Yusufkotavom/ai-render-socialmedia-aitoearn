@@ -185,6 +185,9 @@
     "save": "保存",
     "saving": "保存中...",
     "saveSuccess": "保存成功",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "gatewayApiKeyLabel": "Gateway API Key（可选）",
+    "gatewayApiKeyPlaceholder": "输入 vgw_...（可选）",
+    "gatewayApiKeyHint": "可选。若设置，将优先使用此 Key 走 AI Gateway。"
   }
 }

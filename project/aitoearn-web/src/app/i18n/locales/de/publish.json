@@ -175,7 +175,10 @@
       "placeholder": "Leer lassen für Standard",
       "clearAll": "Alle benutzerdefinierten Prompts löschen",
       "clearSuccess": "Alle benutzerdefinierten Prompts gelöscht"
-    }
+    },
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... (optional)",
+    "gatewayApiKeyHint": "Optional. Used for text requests through AI Gateway."
   },
   "upload": {
     "finishingUp": "Wird abgeschlossen...",

@@ -176,6 +176,9 @@
     "save": "저장",
     "saving": "저장 중...",
     "saveSuccess": "성공적으로 저장되었습니다",
-    "saveFailed": "저장 실패"
+    "saveFailed": "저장 실패",
+    "gatewayApiKeyLabel": "Gateway API Key (optional)",
+    "gatewayApiKeyPlaceholder": "Enter vgw_... (optional)",
+    "gatewayApiKeyHint": "Optional. If set, this key will be used for AI Gateway text requests."
   }
 }
