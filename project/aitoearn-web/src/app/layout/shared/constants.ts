@@ -6,7 +6,7 @@
 /** GitHub 仓库地址 */
 export const GITHUB_REPO = 'yikart/AiToEarn'
 
-const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'api.piiblog.net'
+const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'api.bahtiyar.eu.org'
 
 /** 主站地址 */
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || `https://${APP_DOMAIN}`

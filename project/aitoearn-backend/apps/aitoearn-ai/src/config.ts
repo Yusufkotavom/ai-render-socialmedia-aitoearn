@@ -184,7 +184,7 @@ export const aiConfigSchema = z.object({
   pollinations: z.object({
     imageBaseUrl: z.string().default('https://gen.pollinations.ai/image'),
     videoBaseUrl: z.string().default('https://gen.pollinations.ai/video'),
-    appUrl: z.string().default('https://api.piiblog.net'),
+    appUrl: z.string().default('https://api.bahtiyar.eu.org'),
     secretKey: z.string().default(''),
     publishableKey: z.string().default(''),
   }),

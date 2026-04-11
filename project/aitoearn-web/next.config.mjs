@@ -24,6 +24,7 @@ const nextConfig = {
     return config
   },
   reactStrictMode: false,
+  trailingSlash: false,
   experimental: {
     forceSwcTransforms: true,
     outputFileTracingRoot: undefined,

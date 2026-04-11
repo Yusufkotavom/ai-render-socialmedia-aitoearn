@@ -272,42 +272,52 @@ const RecordCore = memo(
         data-testid="record-trigger"
         variant="outline"
         className={cn(
-          'flex justify-between items-center box-border w-full h-auto',
-          isMobile ? 'px-2.5 py-2.5' : 'px-1.5 py-1.5',
+          'flex flex-col items-start box-border w-full h-auto',
+          isMobile ? 'p-2' : 'p-1.5',
           'bg-card hover:bg-accent border-border',
           'rounded-md transition-colors',
           'text-foreground font-normal',
-          'shadow-none cursor-pointer',
+          'shadow-none cursor-pointer overflow-hidden',
         )}
         style={{
           width: isMobile || calendarViewType === 'week' || calendarViewType === 'list' ? '100%' : `${calendarCallWidth}px`,
         }}
       >
-        <div className={cn('flex items-center', isMobile ? 'gap-2.5' : 'gap-1.5')}>
-          <Image
-            src={platIcon || ''}
-            width={28}
-            height={28}
-            className={cn(isMobile ? 'w-7 h-7' : 'w-[25px] h-[25px]')}
-            alt="platform"
-            unoptimized
-          />
-          <div className={cn('font-semibold', isMobile ? 'text-base' : 'text-sm')}>
-            {days.format('HH:mm')}
-          </div>
-        </div>
-        {publishRecord.coverUrl && (
-          <div className="flex items-center">
+        <div className="flex justify-between items-center w-full gap-1">
+          <div className={cn('flex items-center min-w-0', isMobile ? 'gap-2' : 'gap-1.5')}>
             <Image
-              src={getOssUrl(publishRecord.coverUrl || '')}
-              width={32}
-              height={32}
-              className={cn('rounded object-cover', isMobile ? 'w-8 h-8' : 'w-6 h-6')}
-              alt="cover"
+              src={platIcon || ''}
+              width={28}
+              height={28}
+              className={cn('shrink-0', isMobile ? 'w-6 h-6' : 'w-5 h-5')}
+              alt="platform"
               unoptimized
             />
+            <div className={cn('font-semibold shrink-0', isMobile ? 'text-sm' : 'text-xs')}>
+              {days.format('HH:mm')}
+            </div>
+            <div className="truncate text-[10px] md:text-xs text-muted-foreground flex-1 text-left" title={account?.nickname}>
+              {account?.nickname}
+            </div>
           </div>
-        )}
+          {publishRecord.coverUrl && (
+            <div className="flex items-center shrink-0">
+              <Image
+                src={getOssUrl(publishRecord.coverUrl || '')}
+                width={32}
+                height={32}
+                className={cn('rounded object-cover', isMobile ? 'w-6 h-6' : 'w-5 h-5')}
+                alt="cover"
+                unoptimized
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex items-center w-full mt-1 overflow-hidden" data-testid="record-status-badge">
+          <div className="scale-75 md:scale-90 origin-left">
+            <PubStatus status={publishRecord.status} />
+          </div>
+        </div>
       </Button>
     )
 
