@@ -1,5 +1,5 @@
-import type { Response } from 'express'
-import { BadRequestException, Body, Get, Inject, Param, Post, Query, Res } from '@nestjs/common'
+import type { Request, Response } from 'express'
+import { BadRequestException, Body, Get, Inject, Param, Post, Query, Req, Res } from '@nestjs/common'
 import { GetToken, Public, TokenInfo } from '@yikart/aitoearn-auth'
 import { ApiDoc, UserType } from '@yikart/common'
 import { AssetStatus } from '@yikart/mongodb'
@@ -105,6 +105,46 @@ export abstract class AssetsHttpControllerBase {
     }
 
     return ThumbnailResultVo.create({ thumbnailUrl: result.thumbnailUrl })
+  }
+
+  @Public()
+  @ApiDoc({
+    summary: 'Stream Local Asset',
+    description: 'Stream an asset directly from the local filesystem (e.g. from a mounted rclone drive).',
+  })
+  @Get('/mnt/*')
+  async streamLocalAsset(
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const localPath = decodeURIComponent(req.path.replace(/^.*\/mnt\//, '/mnt/'))
+    try {
+      const { stat } = await import('node:fs/promises')
+      const fileStat = await stat(localPath)
+      const mimeType = mime.lookup(localPath) || 'application/octet-stream'
+
+      res.setHeader('Content-Type', mimeType)
+      res.setHeader('Content-Length', fileStat.size)
+      res.setHeader('Accept-Ranges', 'bytes')
+
+      const range = req.headers.range
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-')
+        const start = parseInt(parts[0], 10)
+        const end = parts[1] ? parseInt(parts[1], 10) : fileStat.size - 1
+        const chunksize = (end - start) + 1
+        const file = (await import('node:fs')).createReadStream(localPath, { start, end })
+        res.status(206)
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${fileStat.size}`)
+        res.setHeader('Content-Length', chunksize)
+        file.pipe(res)
+      } else {
+        const file = (await import('node:fs')).createReadStream(localPath)
+        file.pipe(res)
+      }
+    } catch (error) {
+      res.status(404).send('File not found')
+    }
   }
 
   @Public()

@@ -287,14 +287,13 @@ export class DriveExplorerService {
       const metadata = resolved.metadata
       const filename = path.basename(resolved.mediaPath)
 
-      const upload = await this.assetsService.uploadFromStream(
+      const upload = await this.assetsService.registerLocalAsset(
         userId,
-        createReadStream(resolved.mediaPath),
+        resolved.mediaPath,
         {
           type: AssetType.UserMedia,
           mimeType: this.detectMimeType(filename),
           filename,
-          size: resolved.mediaSize,
         },
       )
 
@@ -303,15 +302,13 @@ export class DriveExplorerService {
         coverUrl = upload.asset.path
       }
       else if (resolved.thumbnailPath) {
-        const thumbnailStat = await stat(resolved.thumbnailPath)
-        const thumbnailUpload = await this.assetsService.uploadFromStream(
+        const thumbnailUpload = await this.assetsService.registerLocalAsset(
           userId,
-          createReadStream(resolved.thumbnailPath),
+          resolved.thumbnailPath,
           {
             type: AssetType.VideoThumbnail,
             mimeType: this.detectMimeType(resolved.thumbnailPath),
             filename: path.basename(resolved.thumbnailPath),
-            size: thumbnailStat.size,
           },
         )
         coverUrl = thumbnailUpload.asset.path

@@ -28,6 +28,9 @@ export abstract class StorageProvider {
   }
 
   buildUrl(objectPath: string): string {
+    if (objectPath.startsWith('/mnt/')) {
+      return objectPath
+    }
     return buildUrl(this.publicEndpoint, objectPath)
   }
 

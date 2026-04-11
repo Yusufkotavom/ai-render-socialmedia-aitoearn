@@ -69,6 +69,49 @@ export class AssetsService {
     }
   }
 
+  async registerLocalAsset(
+    userId: string,
+    localPath: string,
+    dto: { type: AssetType; mimeType?: string; filename?: string; metadata?: Record<string, any> },
+    userType: UserType = UserType.User,
+  ): Promise<UploadResult> {
+    const fs = await import('node:fs/promises')
+    const fileStat = await fs.stat(localPath)
+    
+    let mimeType = dto.mimeType
+    if (!mimeType) {
+      const mime = await import('mime-types')
+      mimeType = mime.lookup(localPath) || 'application/octet-stream'
+    }
+
+    let filename = dto.filename
+    if (!filename) {
+      const path = await import('node:path')
+      filename = path.basename(localPath)
+    }
+
+    const asset = await this.assetRepository.create({
+      userId,
+      userType,
+      path: localPath,
+      type: dto.type,
+      status: AssetStatus.Confirmed,
+      size: fileStat.size,
+      mimeType,
+      filename,
+      metadata: {
+        ...dto.metadata,
+        isExternal: true,
+        source: 'local-drive'
+      } as any,
+    })
+
+    return {
+      asset,
+      url: this.buildUrl(localPath),
+    }
+  }
+
   async uploadFromUrl(
     userId: string,
     dto: UploadFromUrlDto,
@@ -233,7 +276,14 @@ export class AssetsService {
 
     let headResult
     try {
-      headResult = await this.storage.headObject(path)
+      if (path.startsWith('/mnt/')) {
+        const fs = await import('node:fs/promises');
+        const stat = await fs.stat(path);
+        const mime = await import('mime-types');
+        headResult = { contentLength: stat.size, contentType: mime.lookup(path) || 'application/octet-stream' };
+      } else {
+        headResult = await this.storage.headObject(path)
+      }
     }
     catch {
       throw new AppException(ResponseCode.AssetNotFound, 'File not found in storage')
@@ -277,6 +327,9 @@ export class AssetsService {
   }
 
   buildUrl(path: string): string {
+    if (path.startsWith('/mnt/')) {
+      return `/assets${path}`
+    }
     return this.storage.buildUrl(path)
   }
 
